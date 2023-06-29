@@ -11,15 +11,25 @@ import time
 
 class MaximumPlasoParser:
     """
-       Class to manage cache
+       Class MaximumPlasoParser
+       MPP or MaximumPlasoParser is a python script that will parse a plaso - Log2Timeline json timeline file.
+       The goal is to provide easily readable and straight forward files for the Forensic analyst.
+       MPP will create a file for each artefact.
        Attributes :
+       None
     """
 
     def __init__(self, dir_out, output_type="csv", separator="|", case_name=None, config_file=None) -> None:
         """
-        The constructor for ManageCache class.
-        Parameters:
+        Constructor for the MaximumPlasoParser Class
+
+        :param dir_out: (str) directory where the results file will be written
+        :param output_type: (str) output format, can be csv or json
+        :param separator: (str) separator for csv output file
+        :param case_name:  (str) name that will be set into json result files (for practical purpose with elk)
+        :param config_file: (str) full path to a json file containing a configuration
         """
+
         self.dir_out = dir_out
         self.output_type = output_type
         self.separator = separator
@@ -127,36 +137,75 @@ class MaximumPlasoParser:
 
     @staticmethod
     def read_json_config(path_to_config):
+        """
+        Function to read and load a json file into a dict
+        :param path_to_config: (str) full path to a json file
+        :return: (dict) dict containing the content of the json file
+        """
         with open(path_to_config, 'r') as config:
             return json.load(config)
 
     @staticmethod
-    def convert_epoch_to_date(epoch_time_str):
-        dt = datetime.fromtimestamp(epoch_time_str / 1000000).strftime('%Y-%m-%dT%H:%M:%S')
+    def convert_epoch_to_date(epoch_time):
+        """
+        Function to convert an epoch time (nanoseconds) into date and time.
+        Split into 2 variable date and time
+        :param epoch_time: (int) epoch time to be converted
+        :return:
+        (str) date in format %Y-%m-%d
+        (str) time in format %H:%M:%S
+        """
+        dt = datetime.fromtimestamp(epoch_time / 1000000).strftime('%Y-%m-%dT%H:%M:%S')
         l_dt = dt.split("T")
         return l_dt[0], l_dt[1]
 
     def identify_type_artefact_by_parser(self, line):
+        """
+        Function to indentify an artefact type depending on the plaso parser used
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: (dict(key))|(str) the key containing the name of the artefact associated with the parser
+        """
         for key, value in self.d_regex_type_artefact.items():
             if re.search(value, line.get("parser")):
                 return key
 
     def identify_artefact_by_filename(self, line):
+        """
+        Function to indentify an artefact type depending on the name of the file that was parsed
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: (dict(key))|(str) the key containing the name of the artefact associated with the filename
+        """
         for key, value in self.d_regex_aterfact_by_file_name.items():
             if re.search(value, line.get("filename")):
                 return key
 
     def identify_artefact_by_source_name(self, line):
+        """
+        Function to indentify an artefact type depending on the source type of the file that was parsed
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: (dict(key))|(str) the key containing the name of the artefact associated with the source name
+        """
         for key, value in self.d_regex_artefact_by_source_name.items():
             if re.search(value, line.get("source_name")):
                 return key
 
     def identify_artefact_by_parser_name(self, line):
+        """
+        Function to indentify an artefact depending on the plaso parser used
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: (dict(key))|(str) the key containing the name of the artefact associated with the parser
+        """
         for key, value in self.d_regex_artefact_by_parser_name.items():
             if re.search(value, line.get("parser")):
                 return key
 
     def assign_parser(self, line, type_artefact):
+        """
+        Function to assign a parser depending on the artefact type
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :param type_artefact: (str) type of artefact
+        :return: None
+        """
         if type_artefact == "evtx":
             self.parse_logs(line)
         if type_artefact == "hive":
@@ -167,6 +216,12 @@ class MaximumPlasoParser:
             self.parse_win_file(line)
 
     def initialise_csv_files(self):
+        """
+        Function that will initialise all csv result file.
+        It will open a stream to all results file and write header into it.
+        Stream are keeped open to avoid opening and closing multiple file every new line of the timeline
+        :return: None
+        """
 
         if self.config.get("4624"):
             l_res_4624_header = ["Date", "time", "event_code", "logon_type", "subject_user_name", "target_user_name",
@@ -330,6 +385,12 @@ class MaximumPlasoParser:
             self.lnk_res_file.write("\n")
 
     def initialise_json_files(self):
+        """
+        Function that will initialise all json result file.
+        It will open a stream to all results file.
+        Stream are keeped open to avoid opening and closing multiple file every new line of the timeline
+        :return: None
+        """
 
         if self.config.get("4624"):
             self.logon_res_file = open(os.path.join(self.dir_out, "4624.json"), 'a')
@@ -408,6 +469,10 @@ class MaximumPlasoParser:
             self.lnk_res_file = open(os.path.join(self.dir_out, "lnk.json"), 'a')
 
     def close_files(self):
+        """
+        Function to close all opened stream
+        :return:
+        """
         self.logon_res_file.close()
         self.logon_failed_file.close()
         self.logon_spe_file.close()
@@ -436,6 +501,11 @@ class MaximumPlasoParser:
         self.lnk_res_file.close()
 
     def parse_timeline(self, path_to_tl):
+        """
+        Main function to parse the plaso timeline
+        :param path_to_tl: (str) full path to the timeline
+        :return: None
+        """
         try:
             with open(path_to_tl) as timeline:
                 for line in timeline:
@@ -454,6 +524,11 @@ class MaximumPlasoParser:
     #  -----------------------------------------------------------------------------------------------------------------
 
     def parse_logs(self, line):
+        """
+        Main function to parse log type artefacts
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         log_type = self.identify_artefact_by_source_name(line)
         if log_type == "security":
             self.parse_security_evtx(line)
@@ -474,6 +549,11 @@ class MaximumPlasoParser:
 
     #  ----------------------------------------  Wmi ---------------------------------------------
     def parse_wmi(self, event):
+        """
+        Main function to parse wmi type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if str(event_code) in ["5860", "5861"]:
             self.parse_wmi_evtx_from_xml(event)
@@ -481,6 +561,12 @@ class MaximumPlasoParser:
             self.parse_wmi_failure_from_xml(event)
 
     def parse_wmi_evtx_from_xml(self, event):
+        """
+        Function to parse wmi log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -494,13 +580,37 @@ class MaximumPlasoParser:
         cause = op_dict.get("PossibleCause", "-").replace("\n", "")
         query = op_dict.get("Query", "-").replace("\n", "")
         consumer = op_dict.get("CONSUMER", "-")
-        res = "{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, operation_name, user, namespace,
+
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, operation_name, user, namespace,
                                                   consumer, cause, query)
 
-        self.wmi_file.write(res)
+            self.wmi_file.write(res)
+        else:
+            workstation_name = op_dict.get("computer_name", "-")
+            res = {
+                "case_name": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "event_code": event_code,
+                "operation_name": operation_name,
+                "user": user,
+                "namespace": namespace,
+                "consumer": consumer,
+                "cause": cause,
+                "query": query
+            }
+            json.dump(res, self.wmi_file)
+
         self.wmi_file.write('\n')
 
     def parse_wmi_failure_from_xml(self, event):
+        """
+        Function to parse wmi failure log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -515,14 +625,36 @@ class MaximumPlasoParser:
         query = op_dict.get("Operation", "-").replace("\n", "")
         consumer = op_dict.get("CONSUMER", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, operation_name, user, namespace,
-                                                  consumer, cause, query)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, operation_name, user, namespace,
+                                                      consumer, cause, query)
 
-        self.wmi_file.write(res)
+            self.wmi_file.write(res)
+        else:
+            workstation_name = op_dict.get("computer_name", "-")
+            res = {
+                "case_name": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "event_code": event_code,
+                "operation_name": operation_name,
+                "user": user,
+                "namespace": namespace,
+                "consumer": consumer,
+                "cause": cause,
+                "query": query
+            }
+            json.dump(res, self.wmi_file)
+
         self.wmi_file.write('\n')
 
     #  ----------------------------------------  RDP ---------------------------------------------
     def parse_rdp(self, event):
+        """
+        Main function to parse rdp type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if str(event_code) in ["1149"]:
             self.parse_rdp_remote_evtx_from_xml(event)
@@ -530,6 +662,12 @@ class MaximumPlasoParser:
             self.parse_rdp_local_evtx_from_xml(event)
 
     def parse_rdp_remote_evtx_from_xml(self, event):
+        """
+        Function to parse remote rdp log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
@@ -539,11 +677,31 @@ class MaximumPlasoParser:
         user_name = event_data.get("Param1", "-")
         ip_addr = event_data.get("Param3", "-")
 
-        res = "{}|{}|{}|InitConnexion|{}|{}".format(ts_date, ts_time, event_code, user_name, ip_addr)
-        self.remote_rdp_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|InitConnexion|{}|{}".format(ts_date, ts_time, event_code, user_name, ip_addr)
+            self.remote_rdp_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "case_name": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "event_code": event_code,
+                "user_name": user_name,
+                "ip_address": ip_addr
+            }
+            json.dump(res, self.remote_rdp_file)
+
         self.remote_rdp_file.write('\n')
 
     def parse_rdp_local_evtx_from_xml(self, event):
+        """
+        Function to parse local rdp log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
@@ -569,19 +727,49 @@ class MaximumPlasoParser:
         else:
             reason = "-"
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, user_name, ip_addr,
-                                                     session_id, source, target_session, reason_n, reason)
-        self.local_rdp_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, user_name, ip_addr,
+                                                         session_id, source, target_session, reason_n, reason)
+            self.local_rdp_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "case_name": self.case_name,
+                "workstation_name": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "event_code": event_code,
+                "user_name": user_name,
+                "ip_address": ip_addr,
+                "session_id": session_id,
+                "source": source,
+                "target_session": target_session,
+                "reason_n": reason_n,
+                "reason": reason
+            }
+            json.dump(res, self.local_rdp_file)
+
         self.local_rdp_file.write('\n')
 
     #  ----------------------------------------  Bits ---------------------------------------------
 
     def parse_bits(self, event):
+        """
+        Main function to parse bits type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if str(event_code) in ["3", "4", "59", "60", "61"]:
             self.parse_bits_evtx_from_xml(event)
 
     def parse_bits_evtx_from_xml(self, event):
+        """
+        Function to parse remote bits log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -589,7 +777,7 @@ class MaximumPlasoParser:
         event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
 
         user = "-"
-        id = "-"
+        identifiant = "-"
         job_owner = "-"
         job_id = "-"
         job_title = "-"
@@ -607,7 +795,7 @@ class MaximumPlasoParser:
                 user = data.get("#text", "-")
 
             elif data.get("@Name", "") == "Id":
-                id = data.get("#text", "-")
+                identifiant = data.get("#text", "-")
 
             elif data.get("@Name", "") == "jobOwner":
                 job_owner = data.get("#text", "-")
@@ -642,18 +830,45 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "processPath":
                 process_path = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|".format(ts_date, ts_time, event_code, id, job_id,
-                                                                        job_title, job_owner, user, bytes_total,
-                                                                        bytes_transferred, file_count, file_length,
-                                                                        file_time, name, url, process_path)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|".format(ts_date, ts_time, event_code, id, job_id,
+                                                                            job_title, job_owner, user, bytes_total,
+                                                                            bytes_transferred, file_count, file_length,
+                                                                            file_time, name, url, process_path)
+            self.bits_file.write(res)
 
-        self.bits_file.write(res)
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "identifiant": identifiant,
+                "job_id": job_id,
+                "job_title": job_title,
+                "job_owner": job_owner,
+                "user": bytes_total,
+                "bytes_transferred": bytes_transferred,
+                "file_count": file_count,
+                "file_length": file_length,
+                "file_time": file_time,
+                "name": name,
+                "url": url,
+                "process_path": process_path
+            }
+            json.dump(res, self.bits_file)
+
         self.bits_file.write('\n')
 
     #  ----------------------------------------  Security ---------------------------------------------
 
     def parse_security_evtx(self, event):
-
+        """
+        Main function to parse security type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if event_code == 4624:
             self.parse_logon_from_xml(event)
@@ -671,6 +886,12 @@ class MaximumPlasoParser:
             self.parse_new_proc_from_xml(event)
 
     def parse_logon_from_xml(self, event):
+        """
+        Function to parse logon log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = "4624"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -695,12 +916,35 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "LogonType":
                 logon_type = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                               ip_address, ip_port, logon_type)
-        self.logon_res_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
+                                                   ip_address, ip_port, logon_type)
+            self.logon_res_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "subject_user_name": subject_user_name,
+                "target_user_name": target_user_name,
+                "ip_address": ip_address,
+                "ip_port": ip_port,
+                "logon_type": logon_type
+            }
+            json.dump(res, self.logon_res_file)
+
         self.logon_res_file.write('\n')
 
     def parse_failed_logon_from_xml(self, event):
+        """
+        Function to parse failed logon log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = "4625"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -725,12 +969,35 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "LogonType":
                 logon_type = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                               ip_address, ip_port, logon_type)
-        self.logon_failed_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
+                                                   ip_address, ip_port, logon_type)
+            self.logon_failed_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "subject_user_name": subject_user_name,
+                "target_user_name": target_user_name,
+                "ip_address": ip_address,
+                "ip_port": ip_port,
+                "logon_type": logon_type
+            }
+            json.dump(res, self.logon_failed_file)
+
         self.logon_failed_file.write('\n')
 
     def parse_spe_logon_from_xml(self, event):
+        """
+        Function to parse special logon log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = "4672"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -755,12 +1022,35 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "LogonType":
                 logon_type = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                               ip_address, ip_port, logon_type)
-        self.logon_spe_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
+                                                   ip_address, ip_port, logon_type)
+            self.logon_spe_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "subject_user_name": subject_user_name,
+                "target_user_name": target_user_name,
+                "ip_address": ip_address,
+                "ip_port": ip_port,
+                "logon_type": logon_type
+            }
+            json.dump(res, self.logon_spe_file)
+
         self.logon_spe_file.write('\n')
 
     def parse_logon_exp_from_xml(self, event):
+        """
+        Function to explicit logon log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = "4648"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -785,12 +1075,35 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "LogonType":
                 logon_type = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                               ip_address, ip_port, logon_type)
-        self.logon_exp_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
+                                                   ip_address, ip_port, logon_type)
+            self.logon_exp_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "subject_user_name": subject_user_name,
+                "target_user_name": target_user_name,
+                "ip_address": ip_address,
+                "ip_port": ip_port,
+                "logon_type": logon_type
+            }
+            json.dump(res, self.logon_exp_file)
+
         self.logon_exp_file.write('\n')
 
     def parse_new_proc_from_xml(self, event):
+        """
+        Function to parse new process log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = "4688"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -815,19 +1128,46 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "ParentProcessName":
                 parent_proc_name = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                               cmd_line, new_proc_name, parent_proc_name)
-        self.new_proc_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
+                                                   cmd_line, new_proc_name, parent_proc_name)
+            self.new_proc_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "subject_user_name": subject_user_name,
+                "target_user_name": target_user_name,
+                "cmd_line": cmd_line,
+                "new_process_name": new_proc_name,
+                "parent_process_name": parent_proc_name
+            }
+            json.dump(res, self.new_proc_file)
+
         self.new_proc_file.write('\n')
 
     #  ----------------------------------------  System ---------------------------------------------
     def parse_system_evtx(self, event):
+        """
+        Main function to parse system type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if event_code == 7045:
             self.parse_service_from_xml(event)
 
     def parse_service_from_xml(self, event):
-
+        """
+        Function to parse service creation log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -852,13 +1192,35 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "StartType":
                 start_type = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, account_name, img_path, service_name, start_type)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, account_name, img_path, service_name,
+                                             start_type)
 
-        self.service_file.write(res)
+            self.service_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "account_name": account_name,
+                "imgage_path": img_path,
+                "service_name": service_name,
+                "start_type": start_type
+            }
+            json.dump(res, self.service_file)
+
         self.service_file.write('\n')
 
     #  ----------------------------------------  Tasks ---------------------------------------------
     def parse_task_scheduler(self, event):
+        """
+        Main function to parse task scheduler type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if str(event_code) in ["106", "107", "140", "141", "200", "201"]:
             self.parse_task_scheduler_from_xml(event)
@@ -866,6 +1228,12 @@ class MaximumPlasoParser:
             pass
 
     def parse_task_scheduler_from_xml(self, event):
+        """
+        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
@@ -896,9 +1264,29 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "UserContext":
                 user_context = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, name, task_name,
-                                                     instance_id, action_name, result_code, user_name, user_context)
-        self.task_scheduler_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, name, task_name,
+                                                         instance_id, action_name, result_code, user_name, user_context)
+            self.task_scheduler_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "name": name,
+                "task_name": task_name,
+                "instance_id": instance_id,
+                "action_name": action_name,
+                "result_code": result_code,
+                "user_name": user_name,
+                "user_context": user_context
+            }
+
+            json.dump(res, self.task_scheduler_file)
+
         self.task_scheduler_file.write('\n')
 
         '''
@@ -915,16 +1303,16 @@ class MaximumPlasoParser:
         result_code = event_data.get("ResultCode", "-")
         user_name = event_data.get("UserName", "-")
         user_context = event_data.get("UserContext", "-")
-
-        res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, name, task_name,
-                                                     instance_id, action_name, result_code, user_name, user_context)
-        self.task_scheduler_file.write(res)
-        self.task_scheduler_file.write('\n')
-
+        
         '''
 
     #  ----------------------------------------  PowerShell ---------------------------------------------
     def parse_powershell(self, event):
+        """
+        Main function to parse powershell type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if str(event_code) in ["4104", "4105", "4106"]:
             self.parse_powershell_script_from_xml(event)
@@ -932,6 +1320,13 @@ class MaximumPlasoParser:
             self.parse_powershell_cmd_from_xml(event)
 
     def parse_powershell_script_from_xml(self, event):
+        """
+        Function to parse powershell script execution log type.
+        It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -948,12 +1343,33 @@ class MaximumPlasoParser:
             elif data.get("@Name", "") == "ScriptBlockText":
                 script_block_text = data.get("#text", "-")
 
-        res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, path_to_script, script_block_text)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, path_to_script, script_block_text)
+            self.powershell_script_file.write(res)
 
-        self.powershell_script_file.write(res)
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "path_to_script": path_to_script,
+                "script_block_text": script_block_text
+            }
+
+            json.dump(res, self.powershell_script_file)
+
         self.powershell_script_file.write('\n')
 
     def parse_powershell_cmd_from_xml(self, event):
+        """
+        Function to parse powershell cmdu execution log type. It will parse and write results to the appropriate
+        result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -968,18 +1384,43 @@ class MaximumPlasoParser:
                     if "HostApplication" in i:
                         cmdu = i.split("HostApplication=")[1].replace("\n", " ").replace("\t", "").replace("\r", "")
 
-        res = "{}|{}|{}|{}".format(ts_date, ts_time, event_code, cmdu)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}".format(ts_date, ts_time, event_code, cmdu)
+            self.powershell_file.write(res)
 
-        self.powershell_file.write(res)
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "cmdu": cmdu
+            }
+
+            json.dump(res, self.powershell_file)
+
         self.powershell_file.write('\n')
 
     #  ----------------------------------------  App Experience ---------------------------------------------
     def parse_app_experience(self, event):
+        """
+        Main function to parse application experience type logs
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         if str(event_code) in ["500", "505", "17"]:
             self.parse_app_experience_from_xml(event)
 
     def parse_app_experience_from_xml(self, event):
+        """
+        Function to parse application experience log type.
+        It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
@@ -988,15 +1429,34 @@ class MaximumPlasoParser:
         fix_name = evt_as_json.get("Event", {}).get("UserData", {}).get("CompatibilityFixEvent", {}).get("FixName")
         exe_path = evt_as_json.get("Event", {}).get("UserData", {}).get("CompatibilityFixEvent", {}).get("ExePath")
 
-        res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, fix_name, exe_path)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, fix_name, exe_path)
+            self.app_exp_file.write(res)
 
-        self.app_exp_file.write(res)
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "fix_name": fix_name,
+                "exe_path": exe_path
+            }
+
+            json.dump(res, self.app_exp_file)
+
         self.app_exp_file.write('\n')
 
     #  -------------------------------------------------------------  Hives --------------------------------------------
     #  -----------------------------------------------------------------------------------------------------------------
 
     def parse_hives(self, line):
+        """
+        Main function to parse windows hive type artefact
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         hive_type = self.identify_artefact_by_parser_name(line)
         if hive_type == "amcache":
             self.parse_amcache(line)
@@ -1012,55 +1472,150 @@ class MaximumPlasoParser:
             self.parse_run(line)
 
     def parse_amcache(self, event):
+        """
+        Function to parse amcache hive type.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         full_path = event.get("full_path", "-")
         if full_path != "-":
             name = full_path.split("\\")[-1]
             ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
             identifier = event.get("program_identifier", "-")
             sha256_hash = event.get("sha256_hash", "-")
-            #res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, name, identifier, sha256_hash, full_path)
-            res = "{}|{}|{}|{}".format(ts_date, ts_time, name, identifier)
-            self.amcache_res_file.write(res)
+
+            if self.output_type == "csv":
+                res = "{}|{}|{}|{}".format(ts_date, ts_time, name, identifier)
+                # res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, name, identifier, sha256_hash, full_path)
+                self.amcache_res_file.write(res)
+
+            else:
+                workstation_name = event.get("computer_name", "-")
+                res = {
+                    "caseName": self.case_name,
+                    "workstation": workstation_name,
+                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                    "name": name,
+                    "identifier": identifier
+                }
+                json.dump(res, self.amcache_res_file)
+
             self.amcache_res_file.write('\n')
 
     def parse_app_compat_cache(self, event):
+        """
+        Function to parse app compat hive type.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         full_path = event.get("path", "-")
         if full_path != "-":
             name = full_path.split("\\")[-1]
             ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
             sha256_hash = event.get("sha256_hash", "-")
-            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, name, sha256_hash, full_path)
-            self.app_compat_res_file.write(res)
+
+            if self.output_type == "csv":
+                res = "{}|{}|{}|{}".format(ts_date, ts_time, name, full_path)
+                self.app_compat_res_file.write(res)
+
+            else:
+                workstation_name = event.get("computer_name", "-")
+                res = {
+                    "caseName": self.case_name,
+                    "workstation": workstation_name,
+                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                    "name": name,
+                    "identifier": full_path
+                }
+                json.dump(res, self.app_compat_res_file)
             self.app_compat_res_file.write('\n')
 
     def parse_sam(self, event):
+        """
+        Function to parse sam hive type.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         user_name = event.get("username", "-")
         login_count = event.get("login_count", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        res = "{}|{}|{}|{}".format(ts_date, ts_time, user_name, login_count)
 
-        self.sam_res_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}".format(ts_date, ts_time, user_name, login_count)
+            self.sam_res_file.write(res)
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "user_name": user_name,
+                "login_count": login_count
+            }
+            json.dump(res, self.sam_res_file)
         self.sam_res_file.write('\n')
 
     def parse_user_assist(self, event):
+        """
+        Function to user assist artefact.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         value_name = event.get("value_name", "-")
         application_focus_count = event.get("application_focus_count", "-")
         application_focus_duration = event.get("application_focus_duration", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
-        res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, value_name, application_focus_count, application_focus_duration)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, value_name, application_focus_count,
+                                          application_focus_duration)
+            self.user_assist_file.write(res)
 
-        self.user_assist_file.write(res)
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "value_name": value_name,
+                "application_focus_count": application_focus_count,
+                "application_focus_duration": application_focus_duration
+            }
+            json.dump(res, self.user_assist_file)
         self.user_assist_file.write('\n')
 
     def parse_mru(self, event):
+        """
+        Function to parse mru artefact.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if event.get("parser") == "winreg/bagmru/shell_items":
             shell_item_path = event.get("shell_item_path", "-")
             name = event.get("name", "-")
-            res = "{}|{}|{}|{}".format(ts_date, ts_time, name, shell_item_path)
-            self.mru_res_file.write(res)
+
+            if self.output_type == "csv":
+                res = "{}|{}|{}|{}".format(ts_date, ts_time, name, shell_item_path)
+                self.mru_res_file.write(res)
+
+            else:
+                workstation_name = event.get("computer_name", "-")
+                res = {
+                    "caseName": self.case_name,
+                    "workstation": workstation_name,
+                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                    "name": name,
+                    "shell_item_path": shell_item_path
+                }
+                json.dump(res, self.mru_res_file)
             self.mru_res_file.write('\n')
 
         elif event.get("entries"):
@@ -1070,24 +1625,55 @@ class MaximumPlasoParser:
                 header = r'( \d{1,9} \[MRU Value \d{1,9}\]: Shell item path:)|(<UNKNOWN: .*?>)|((\d|[a-z]){1,9} \[MRU Value .{1,9}\]:)'
                 cleaned = re.sub(header, '', entrie).strip()
                 if cleaned:
-                    res = "{}|{}|-|{}".format(ts_date, ts_time, cleaned)
-                    self.mru_res_file.write(res)
+                    if self.output_type == "csv":
+                        res = "{}|{}|-|{}".format(ts_date, ts_time, cleaned)
+                        self.mru_res_file.write(res)
+                    else:
+                        workstation_name = event.get("computer_name", "-")
+                        res = {
+                            "caseName": self.case_name,
+                            "workstation": workstation_name,
+                            "timestamp": "{}T{}".format(ts_date, ts_time),
+                            "mru_entrie": cleaned
+                        }
+                        json.dump(res, self.mru_res_file)
                     self.mru_res_file.write('\n')
 
     def parse_run(self, event):
+        """
+        Function to parse run/RunOnce reg key entries.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         entries = event.get("entries", "-")
 
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         if entries:
             for entrie in entries:
-                res = "{}|{}|{}".format(ts_date, ts_time, entrie)
-                self.run_res_file.write(res)
+                if self.output_type == "csv":
+                    res = "{}|{}|{}".format(ts_date, ts_time, entrie)
+                    self.run_res_file.write(res)
+                else:
+                    workstation_name = event.get("computer_name", "-")
+                    res = {
+                        "caseName": self.case_name,
+                        "workstation": workstation_name,
+                        "timestamp": "{}T{}".format(ts_date, ts_time),
+                        "run_entrie": entrie
+                    }
+                    json.dump(res, self.run_res_file)
                 self.run_res_file.write('\n')
 
     #  -------------------------------------------------------------  DB -----------------------------------------------
     #  -----------------------------------------------------------------------------------------------------------------
 
     def parse_db(self, line):
+        """
+        Main function to parse db type artefact
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         db_type = self.identify_artefact_by_parser_name(line)
         if db_type == "ff_history":
             self.parse_ff_history(line)
@@ -1097,34 +1683,74 @@ class MaximumPlasoParser:
             self.parse_srum(line)
 
     def parse_srum(self, event):
-            description = event.get("message", "-")
+        """
+        Function to parse srum artefact.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
 
-            ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        description = event.get("message", "-")
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
+        if self.output_type == "csv":
             res = "{}|{}|{}".format(ts_date, ts_time, description)
-
             self.srum_res_file.write(res)
-            self.srum_res_file.write('\n')
+
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "description": description
+            }
+            json.dump(res, self.srum_res_file)
+        self.srum_res_file.write('\n')
 
     def parse_ff_history(self, event):
+        """
+        Function to parse firefox history.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
 
-            url = event.get("url", "-")
-            visit_count = event.get("visit_count", "-")
-            visit_type = event.get("visit_type", "-")
-            is_typed = event.get("typed", "-")
-            from_visit = event.get("from_visit", "-")
+        url = event.get("url", "-")
+        visit_count = event.get("visit_count", "-")
+        visit_type = event.get("visit_type", "-")
+        is_typed = event.get("typed", "-")
+        from_visit = event.get("from_visit", "-")
 
-            ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
+        if self.output_type == "csv":
             res = "{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, url, visit_count, visit_type, is_typed, from_visit)
-
             self.ff_history_res_file.write(res)
-            self.ff_history_res_file.write('\n')
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "url": url,
+                "visit_count": visit_count,
+                "visit_type": visit_type,
+                "is_typed": is_typed,
+                "from_visit": from_visit,
+            }
+            json.dump(res, self.ff_history_res_file)
+        self.ff_history_res_file.write('\n')
 
     #  ------------------------------------------------------  Win Files -----------------------------------------------
     #  -----------------------------------------------------------------------------------------------------------------
 
     def parse_win_file(self, line):
+        """
+        Main function to parse windows type artefact
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         file_type = self.identify_artefact_by_parser_name(line)
         if file_type == "prefetch":
             self.parse_prefetch(line)
@@ -1132,26 +1758,58 @@ class MaximumPlasoParser:
             self.parse_lnk(line)
 
     def parse_prefetch(self, event):
-
+        """
+        Function to parse prefetch files.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         run_count = event.get("run_count", "-")
         path_hints = event.get("path_hints", "-")
         executable = event.get("executable", "-")
-
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
-        res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, executable, path_hints, run_count)
-
-        self.prefetch_res_file.write(res)
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, executable, path_hints, run_count)
+            self.prefetch_res_file.write(res)
+        else:
+            workstation_name = event.get("computer_name", "-")
+            res = {
+                "caseName": self.case_name,
+                "workstation": workstation_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "executable": executable,
+                "path_hints": path_hints,
+                "run_count": run_count
+            }
+            json.dump(res, self.prefetch_res_file)
         self.prefetch_res_file.write('\n')
 
     def parse_lnk(self, event):
+        """
+        Function to parse lnk type artefact.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
         description = event.get("description", "-")
         working_directory = event.get("working_directory", "-")
 
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         if description != "-" and working_directory != "-":
-            res = "{}|{}|{}|{}".format(ts_date, ts_time, description, working_directory)
-            self.lnk_res_file.write(res)
+            if self.output_type == "csv":
+                res = "{}|{}|{}|{}".format(ts_date, ts_time, description, working_directory)
+                self.lnk_res_file.write(res)
+            else:
+                workstation_name = event.get("computer_name", "-")
+                res = {
+                    "caseName": self.case_name,
+                    "workstation": workstation_name,
+                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                    "description": description,
+                    "working_directory": working_directory
+                }
+                json.dump(res, self.lnk_res_file)
             self.lnk_res_file.write('\n')
 
 
