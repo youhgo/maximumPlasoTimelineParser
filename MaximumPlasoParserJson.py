@@ -9,6 +9,17 @@ import xmltodict
 import time
 import sys
 
+# TODO : Parsing
+# TODO : Parse AV Detection
+# TODO : Parse Firewall Detection
+# TODO : Parse Shutdown + restart
+# TODO : Parse Log erasure
+
+# TODO : General
+# TODO : Parse Task Scheduler event 4698 + 4702
+# TODO : Remove duplicate
+# TODO : Be able to produce CSV and JSON output in 1 run
+
 
 class MaximumPlasoParserJson:
     """
@@ -69,7 +80,8 @@ class MaximumPlasoParserJson:
                 "srum": 1,
                 "run": 1,
                 "lnk": 1,
-                "mft": 1
+                "mft": 1,
+                "windefender": 1
             }
 
         self.d_regex_type_artefact = {
@@ -99,7 +111,8 @@ class MaximumPlasoParserJson:
             "rdp_local": re.compile(r'Microsoft-Windows-TerminalServices-LocalSessionManager'),
             "powershell": re.compile(r'(Microsoft-Windows-PowerShell)|(PowerShell)'),
             "wmi": re.compile(r'Microsoft-Windows-WMI-Activity'),
-            "application_experience": re.compile(r'Microsoft-Windows-Application-Experience')
+            "application_experience": re.compile(r'Microsoft-Windows-Application-Experience'),
+            "windefender": re.compile(r'Microsoft-Windows-Windows Defender') #.*Microsoft-Windows-Windows_Defender%4Operational
         }
         self.d_regex_artefact_by_parser_name = {
             "amcache": re.compile(r'amcache'),
@@ -150,7 +163,8 @@ class MaximumPlasoParserJson:
         self.l_csv_header_prefetch = ["Date", "time", "name", "path", "nbExec", "sha256"]
         self.l_csv_header_lnk = ["Date", "time", "description", "working_dir"]
         self.l_csv_header_mft = ["Date", "time", "source", "fileName", "action", "fileType"]
-
+        self.l_csv_header_windefender = ["Date", "time", "EventCode", "Severity", "User", "ProcessName", "Path"]
+        
         self.logon_res_file = ""
         self.logon_failed_file = ""
         self.logon_spe_file = ""
@@ -178,6 +192,8 @@ class MaximumPlasoParserJson:
         self.lnk_res_file = ""
 
         self.mft_res_file = ""
+
+        self.windefender_res_file = ""
 
         self.initialise_results_files()
 
@@ -331,6 +347,10 @@ class MaximumPlasoParserJson:
 
         if self.config.get("mft"):
             self.mft_res_file = self.initialise_result_file(self.l_csv_header_mft, "mft", self.output_type)
+
+        if self.config.get("windefender"):
+            self.windefender_res_file = self.initialise_result_file(self.l_csv_header_windefender,
+                                                                    "windefender", self.output_type)
 
     def identify_type_artefact_by_parser(self, line):
         """
@@ -525,6 +545,9 @@ class MaximumPlasoParserJson:
             self.parse_wmi(line)
         if log_type == "application_experience":
             self.parse_app_experience(line)
+        if log_type == "windefender":
+            self.parse_windows_defender(line)
+
 
     #  ----------------------------------------  Wmi ---------------------------------------------
     def parse_wmi(self, event):
@@ -567,10 +590,9 @@ class MaximumPlasoParserJson:
 
             self.wmi_file.write(res)
         else:
-            workstation_name = op_dict.get("computer_name", "-")
             res = {
                 "case_name": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "event_code": event_code,
                 "operation_name": operation_name,
@@ -611,10 +633,10 @@ class MaximumPlasoParserJson:
 
             self.wmi_file.write(res)
         else:
-            workstation_name = op_dict.get("computer_name", "-")
+            
             res = {
                 "case_name": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "event_code": event_code,
                 "operation_name": operation_name,
@@ -664,10 +686,10 @@ class MaximumPlasoParserJson:
             self.remote_rdp_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "case_name": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "event_code": event_code,
                 "user_name": user_name,
@@ -715,10 +737,10 @@ class MaximumPlasoParserJson:
             self.local_rdp_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "case_name": self.case_name,
-                "workstation_name": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "event_code": event_code,
                 "user_name": user_name,
@@ -821,10 +843,10 @@ class MaximumPlasoParserJson:
             self.bits_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "identifiant": identifiant,
@@ -905,10 +927,10 @@ class MaximumPlasoParserJson:
             self.logon_res_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "subject_user_name": subject_user_name,
@@ -958,10 +980,10 @@ class MaximumPlasoParserJson:
             self.logon_failed_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "subject_user_name": subject_user_name,
@@ -1011,10 +1033,10 @@ class MaximumPlasoParserJson:
             self.logon_spe_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "subject_user_name": subject_user_name,
@@ -1064,10 +1086,10 @@ class MaximumPlasoParserJson:
             self.logon_exp_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "subject_user_name": subject_user_name,
@@ -1117,10 +1139,10 @@ class MaximumPlasoParserJson:
             self.new_proc_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "subject_user_name": subject_user_name,
@@ -1182,10 +1204,10 @@ class MaximumPlasoParserJson:
             self.service_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "account_name": account_name,
@@ -1254,10 +1276,10 @@ class MaximumPlasoParserJson:
             self.task_scheduler_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "name": name,
@@ -1335,10 +1357,10 @@ class MaximumPlasoParserJson:
             self.powershell_script_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "path_to_script": path_to_script,
@@ -1376,10 +1398,10 @@ class MaximumPlasoParserJson:
             self.powershell_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "cmdu": cmdu
@@ -1422,10 +1444,10 @@ class MaximumPlasoParserJson:
             self.app_exp_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "fix_name": fix_name,
@@ -1478,10 +1500,10 @@ class MaximumPlasoParserJson:
                 self.amcache_res_file.write(res)
 
             else:
-                workstation_name = event.get("computer_name", "-")
+                
                 res = {
                     "caseName": self.case_name,
-                    "workstation": workstation_name,
+                    "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
                     "identifier": identifier
@@ -1508,10 +1530,10 @@ class MaximumPlasoParserJson:
                 self.app_compat_res_file.write(res)
 
             else:
-                workstation_name = event.get("computer_name", "-")
+                
                 res = {
                     "caseName": self.case_name,
-                    "workstation": workstation_name,
+                    "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
                     "identifier": full_path
@@ -1535,10 +1557,10 @@ class MaximumPlasoParserJson:
             self.sam_res_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "user_name": user_name,
                 "login_count": login_count
@@ -1564,10 +1586,10 @@ class MaximumPlasoParserJson:
             self.user_assist_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "value_name": value_name,
                 "application_focus_count": application_focus_count,
@@ -1594,10 +1616,10 @@ class MaximumPlasoParserJson:
                 self.mru_res_file.write(res)
 
             else:
-                workstation_name = event.get("computer_name", "-")
+                
                 res = {
                     "caseName": self.case_name,
-                    "workstation": workstation_name,
+                    "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
                     "shell_item_path": shell_item_path
@@ -1616,10 +1638,10 @@ class MaximumPlasoParserJson:
                         res = "{}|{}|-|{}".format(ts_date, ts_time, cleaned)
                         self.mru_res_file.write(res)
                     else:
-                        workstation_name = event.get("computer_name", "-")
+                        
                         res = {
                             "caseName": self.case_name,
-                            "workstation": workstation_name,
+                            "workstation_name": self.machine_name,
                             "timestamp": "{}T{}".format(ts_date, ts_time),
                             "mru_entrie": cleaned
                         }
@@ -1642,10 +1664,10 @@ class MaximumPlasoParserJson:
                     res = "{}|{}|{}".format(ts_date, ts_time, entrie)
                     self.run_res_file.write(res)
                 else:
-                    workstation_name = event.get("computer_name", "-")
+                    
                     res = {
                         "caseName": self.case_name,
-                        "workstation": workstation_name,
+                        "workstation_name": self.machine_name,
                         "timestamp": "{}T{}".format(ts_date, ts_time),
                         "run_entrie": entrie
                     }
@@ -1684,10 +1706,10 @@ class MaximumPlasoParserJson:
             self.srum_res_file.write(res)
 
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "description": description
             }
@@ -1714,10 +1736,10 @@ class MaximumPlasoParserJson:
             res = "{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, url, visit_count, visit_type, is_typed, from_visit)
             self.ff_history_res_file.write(res)
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "url": url,
                 "visit_count": visit_count,
@@ -1758,10 +1780,10 @@ class MaximumPlasoParserJson:
             res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, executable, path_hints, run_count)
             self.prefetch_res_file.write(res)
         else:
-            workstation_name = event.get("computer_name", "-")
+            
             res = {
                 "caseName": self.case_name,
-                "workstation": workstation_name,
+                "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "executable": executable,
                 "path_hints": path_hints,
@@ -1786,10 +1808,10 @@ class MaximumPlasoParserJson:
                 res = "{}|{}|{}|{}".format(ts_date, ts_time, description, working_directory)
                 self.lnk_res_file.write(res)
             else:
-                workstation_name = event.get("computer_name", "-")
+                
                 res = {
                     "caseName": self.case_name,
-                    "workstation": workstation_name,
+                    "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "description": description,
                     "working_directory": working_directory
@@ -1806,7 +1828,7 @@ class MaximumPlasoParserJson:
         :return: None
         """
         reg_ntfs = re.compile(r'NTFS')
-        if not self.config.get("mft", "") and not line:
+        if not self.config.get("mft", "") or not line:
             return
         parser = line.get("parser")
         if parser in ["usnjrnl"]:
@@ -1815,7 +1837,7 @@ class MaximumPlasoParserJson:
             self.parse_file_mft(line)
         elif parser in ["filestat"] and re.search(reg_ntfs, json.dumps(line)):
             self.parse_filestat(line)
-            
+
 #TODO: Improve name regex
     def parse_usnjrl(self, event):
         """
@@ -1846,7 +1868,7 @@ class MaximumPlasoParserJson:
             res = {
                 "caseName": self.case_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
-                "workstation_name": self.workstation_name,
+                "workstation_name": self.machine_name,
                 "message": msg,
                 "file_name": file_name
             }
@@ -1866,7 +1888,7 @@ class MaximumPlasoParserJson:
             res = {
                 "caseName": self.case_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time,),
-                "workstation_name": self.workstation_name,
+                "workstation_name": self.machine_name,
                 "action": action,
                 "file_type": file_type,
                 "path": file_name_path
@@ -1887,13 +1909,75 @@ class MaximumPlasoParserJson:
             res = {
                 "caseName": self.case_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time,),
-                "workstation_name": self.workstation_name,
+                "workstation_name": self.machine_name,
                 "action": action,
                 "file_type": file_type,
                 "path": file_name_path
             }
             json.dump(res, self.mft_res_file)
         self.mft_res_file.write('\n')
+
+    def parse_windows_defender(self, line):
+        """
+        Main function to parse windows mft
+        :param line: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        if not self.config.get("windefender", "") or not line:
+            return
+        event_code = line.get("event_identifier")
+        if event_code == 1116 and self.windefender_res_file:
+            self.parse_windef_detection_from_xml(line)
+
+    def parse_windef_detection_from_xml(self, event):
+        """
+        Function to parse logon log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        event_code = "1116"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        evt_as_xml = event.get("xml_string")
+        evt_as_json = xmltodict.parse(evt_as_xml)
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
+        severity = "-"
+        process_name = "-"
+        detection_user = "-"
+        path = "-"
+        logon_type = "-"
+
+        for data in event_data:
+            if data.get("@Name", "") == "Severity Name":
+                severity = data.get("#text", "-")
+            elif data.get("@Name", "") == "Process Name":
+                process_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "Detection User":
+                detection_user = data.get("#text", "-")
+            elif data.get("@Name", "") == "Path":
+                path = data.get("#text", "-")
+
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, severity, detection_user,
+                                                process_name, path)
+            self.windefender_res_file.write(res)
+
+        else:
+            
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "severity": severity,
+                "detection_user": detection_user,
+                "process_name": process_name,
+                "path": path
+            }
+            json.dump(res, self.logon_res_file)
+        self.windefender_res_file.write('\n')
+
 
 
 def parse_args():
@@ -1977,3 +2061,20 @@ if __name__ == '__main__':
         exit(1)
 
     print("Finished in {} secondes".format(time.time() - start_time))
+
+
+"""
+location": "Microsoft-Windows-Windows Defender%4Operational.evtx
+location": "Microsoft-Windows-Windows Defender%4WHC.evtx
+event id 1116 1117 1015 1013 1014 1012 1011 1010 1009 1008 1007 1006 1005 1004 1003 1002 
+
+location": "Microsoft-Windows-Windows Firewall With Advanced Security%4ConnectionSecurity.evtx
+location": "Microsoft-Windows-Windows Firewall With Advanced Security%4FirewallDiagnostics.evtx
+location": "Microsoft-Windows-Windows Firewall With Advanced Security%4Firewall.evtx
+location": "Microsoft-Windows-WindowsUpdateClient%4Operational.evtx
+location": "Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
+location": "Microsoft-Windows-Winlogon%4Operational.evtx
+location": "Microsoft-Windows-WinRM%4Operational.evtx
+location": "Microsoft-Windows-WMI-Activity%4Operational.evtx
+
+"""
