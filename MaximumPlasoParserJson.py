@@ -1919,19 +1919,27 @@ class MaximumPlasoParserJson:
 
     def parse_windows_defender(self, line):
         """
-        Main function to parse windows mft
+        Main function to parse windows defender logs
         :param line: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
         if not self.config.get("windefender", "") or not line:
             return
-        event_code = line.get("event_identifier")
-        if event_code == 1116 and self.windefender_res_file:
+        event_code = str(line.get("event_identifier"))
+        if event_code in ["1116"] and self.windefender_res_file:
             self.parse_windef_detection_from_xml(line)
+        if event_code in ["1117", "1118", "1119"] and self.windefender_res_file:
+            self.parse_windef_action_from_xml(line)
+        if event_code in ["1006"] and self.windefender_res_file:
+            pass
+            #self.parse_windef_detection_from_xml_legacy(line)
+        if event_code in ["1007"] and self.windefender_res_file:
+            pass
+            #self.parse_windef_action_from_xml_legacy(line)
 
     def parse_windef_detection_from_xml(self, event):
         """
-        Function to parse logon log type. It will parse and write results to the appropriate result file.
+        Function to parse windefender detection log type. It will parse and write results to the appropriate result file.
         The function will get the interesting information from the xml string
         :param event: (dict) dict containing one line of the plaso timeline,
         :return: None
@@ -1942,13 +1950,18 @@ class MaximumPlasoParserJson:
         evt_as_json = xmltodict.parse(evt_as_xml)
         event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
 
+        threat_name = "-"
         severity = "-"
         process_name = "-"
         detection_user = "-"
         path = "-"
-        logon_type = "-"
+        action = "-"
 
         for data in event_data:
+            if data.get("@Name", "") == "Action Name":
+                action = data.get("#text", "-")
+            if data.get("@Name", "") == "Threat Name":
+                threat_name = data.get("#text", "-")
             if data.get("@Name", "") == "Severity Name":
                 severity = data.get("#text", "-")
             elif data.get("@Name", "") == "Process Name":
@@ -1959,8 +1972,8 @@ class MaximumPlasoParserJson:
                 path = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, severity, detection_user,
-                                                process_name, path)
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
+                                                   detection_user, process_name, action)
             self.windefender_res_file.write(res)
 
         else:
@@ -1970,13 +1983,186 @@ class MaximumPlasoParserJson:
                 "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
+                "threat_name": threat_name,
                 "severity": severity,
                 "detection_user": detection_user,
                 "process_name": process_name,
-                "path": path
+                "path": path,
+                "action": action
             }
             json.dump(res, self.logon_res_file)
         self.windefender_res_file.write('\n')
+
+    def parse_windef_action_from_xml(self, event):
+        """
+        Function to parse windefender action log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        event_code = "1117"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        evt_as_xml = event.get("xml_string")
+        evt_as_json = xmltodict.parse(evt_as_xml)
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
+        threat_name = "-"
+        severity = "-"
+        process_name = "-"
+        detection_user = "-"
+        path = "-"
+        action = "-"
+
+        for data in event_data:
+            if data.get("@Name", "") == "Action Name":
+                action = data.get("#text", "-")
+            if data.get("@Name", "") == "Threat Name":
+                threat_name = data.get("#text", "-")
+            if data.get("@Name", "") == "Severity Name":
+                severity = data.get("#text", "-")
+            elif data.get("@Name", "") == "Process Name":
+                process_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "Detection User":
+                detection_user = data.get("#text", "-")
+            elif data.get("@Name", "") == "Path":
+                path = data.get("#text", "-")
+
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
+                                                   detection_user, process_name, action)
+            self.windefender_res_file.write(res)
+
+        else:
+
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "threat_name": threat_name,
+                "severity": severity,
+                "detection_user": detection_user,
+                "process_name": process_name,
+                "path": path,
+                "action": action
+            }
+            json.dump(res, self.logon_res_file)
+        self.windefender_res_file.write('\n')
+
+    def parse_windef_detection_from_xml_legacy(self, event):
+        """
+        Function to parse windefender detection log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        event_code = "1006"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        evt_as_xml = event.get("xml_string")
+        evt_as_json = xmltodict.parse(evt_as_xml)
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
+        threat_name = "-"
+        severity = "-"
+        process_name = "-"
+        detection_user = "-"
+        path = "-"
+        action = "-"
+
+        for data in event_data:
+            print(data)
+            if data.get("@Name", "") == "Action Name":
+                action = data.get("#text", "-")
+            if data.get("@Name", "") == "Threat Name":
+                threat_name = data.get("#text", "-")
+            if data.get("@Name", "") == "Severity Name":
+                severity = data.get("#text", "-")
+            elif data.get("@Name", "") == "Process Name":
+                process_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "Detection User":
+                detection_user = data.get("#text", "-")
+            elif data.get("@Name", "") == "Path":
+                path = data.get("#text", "-")
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
+                                                   detection_user, process_name, action)
+            self.windefender_res_file.write(res)
+
+        else:
+
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "threat_name": threat_name,
+                "severity": severity,
+                "detection_user": detection_user,
+                "process_name": process_name,
+                "path": path,
+                "action": action
+            }
+            json.dump(res, self.logon_res_file)
+        self.windefender_res_file.write('\n')
+
+    def parse_windef_action_from_xml_legacy(self, event):
+        """
+        Function to parse windefender action log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        event_code = "1117"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        evt_as_xml = event.get("xml_string")
+        evt_as_json = xmltodict.parse(evt_as_xml)
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
+        threat_name = "-"
+        severity = "-"
+        process_name = "-"
+        detection_user = "-"
+        path = "-"
+        action = "-"
+
+        for data in event_data:
+            if data.get("@Name", "") == "Action Name":
+                action = data.get("#text", "-")
+            if data.get("@Name", "") == "Threat Name":
+                threat_name = data.get("#text", "-")
+            if data.get("@Name", "") == "Severity Name":
+                severity = data.get("#text", "-")
+            elif data.get("@Name", "") == "Process Name":
+                process_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "Detection User":
+                detection_user = data.get("#text", "-")
+            elif data.get("@Name", "") == "Path":
+                path = data.get("#text", "-")
+
+        if self.output_type == "csv":
+            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
+                                                   detection_user, process_name, action)
+            self.windefender_res_file.write(res)
+
+        else:
+
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "threat_name": threat_name,
+                "severity": severity,
+                "detection_user": detection_user,
+                "process_name": process_name,
+                "path": path,
+                "action": action
+            }
+            json.dump(res, self.logon_res_file)
+        self.windefender_res_file.write('\n')
+
+
+
 
 
 
