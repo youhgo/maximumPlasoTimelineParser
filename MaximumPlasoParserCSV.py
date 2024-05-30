@@ -1970,16 +1970,6 @@ def parse_args():
     return argument_parser
 
 
-def validate_json(timeline):
-    with open(timeline, 'r') as tl:
-        first_line = tl.readline()
-        try:
-            json.loads(first_line)
-            return True
-        except ValueError as err:
-            return False
-
-
 def validate_csv(timeline):
     try:
         with open(timeline, newline='') as csvfile:
@@ -1996,12 +1986,10 @@ def validate_csv(timeline):
 
 # File appears not to be in CSV format; move along
 def check_input(timeline):
-    if validate_json(timeline):
-        return "json"
-    elif validate_csv(timeline):
+    if validate_csv(timeline):
         return "csv"
     else:
-        print("Cannot read timeline correctly, are you sure that it is a valid csv or json ?")
+        print("Cannot read timeline correctly, are you sure that it is a valid csv?")
         exit(1)
 
 

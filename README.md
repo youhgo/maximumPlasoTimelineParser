@@ -1,11 +1,17 @@
-# MaximumPlasoTimelineParser
+# MaximumPlasoParser
 
-Note : further artefact parser will be add over time.
+Note : further artefact parser will be added over time.
+
+Avg time to parse a 1.4 Go Plaso Timeline : 90 sec. 
 
 
 MPP or MaximumPlasoParser is a python script that will parse a [plaso - Log2Timeline](https://github.com/log2timeline/plaso)  json timeline file.
 The goal is to provide easily readable and straight forward files for the Forensic analyst.
 MPP will create a file for each artefact.
+
+
+The output can be set as json in order to be ingested in a SIEM,
+or CSV for human.
 
 
 <ins>For example :</ins>
@@ -43,7 +49,7 @@ Thank u for it bro !
 ```bash
 python3 MaMaximumPlasoParser.py --help
 
-usage: MaximumPlasoParser.py [-h] -t TIMELINE -o OUTPUT_DIR [-c CASE_NAME]
+usage: MaximumPlasoParserJson.py [-h] -t TIMELINE -o OUTPUT_DIR [-c CASE_NAME]
                              [-s SEPARATOR] [--type csv or json]
                              [--config CONFIG_FILE]
 
@@ -118,5 +124,7 @@ Feel free to use the template given with the project "mpp_config.json"
 ## Disclamer
 
 I'm not a professional dev and i'm doing this project on my free time.
-Please be indulgent, 'ill try to correct everything the best i can' :)
+
+There might be some issues on parsing Security logs. SomeTimes, multiple users are referenced on the log and for now
+the script is taking the 1st One witch can be not relevant. I'm working on it.
 
