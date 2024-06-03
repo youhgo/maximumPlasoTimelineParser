@@ -128,42 +128,43 @@ class MaximumPlasoParserJson:
             "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)')
         }
 
-        self.l_csv_header_4624 = ["Date", "time", "event_code", "logon_type", "subject_user_name",
+        self.l_csv_header_4624 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
                                            "target_user_name", "ip_address", "ip_port", "workstation_name"]
-        self.l_csv_header_4625 = ["Date", "time", "event_code", "logon_type", "subject_user_name",
+        self.l_csv_header_4625 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
                                            "target_user_name", "ip_address", "ip_port", "workstation_name"]
-        self.l_csv_header_4672 = ["Date", "time", "event_code", "logon_type", "subject_user_name",
+        self.l_csv_header_4672 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
                                            "target_user_name", "ip_address", "ip_port", "workstation_name"]
-        self.l_csv_header_4648 = ["Date", "time", "event_code", "logon_type", "subject_user_name",
+        self.l_csv_header_4648 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
                                            "target_user_name", "ip_address", "ip_port", "workstation_name"]
-        self.l_csv_header_4688 = ["Date", "time", "event_code", "new_process_name", "command_line",
+        self.l_csv_header_4688 = ["Date", "Time", "event_code", "new_process_name", "command_line",
                                   "parent_process_name", "subject_user_name", "target_user_name", "workstation_name"]
-        self.l_csv_header_tscheduler = ["Date", "time", "event_code", "name", "task_name", "instance_id",
+        self.l_csv_header_tscheduler = ["Date", "Time", "event_code", "name", "task_name", "instance_id",
                                         "action_name", "result_code", "user_name", "user_context"]
-        self.l_csv_header_remot_rdp = ["date", "time", "event_code", "user_name", "ip_addr"]
-        self.l_csv_header_local_rdp = ["date", "time", "event_code", "user_name", "ip_addr", "session_id",
+        self.l_csv_header_remot_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr"]
+        self.l_csv_header_local_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr", "session_id",
                                        "source", "target_session", "reason_n", "reason"]
-        self.l_csv_header_bits = ["date", "time", "event_code", "id", "job_id", "job_title", "job_owner",
-                                  "user", "bytes_total", "bytes_transferred", "file_count", "file_length", "file_time",
+        self.l_csv_header_bits = ["Date", "Time", "event_code", "id", "job_id", "job_title", "job_owner",
+                                  "user", "bytes_total", "bytes_transferred", "file_count", "file_length", "file_Time",
                                   "name", "url", "process_path"]
-        self.l_csv_header_7045 = ["date", "time", "event_code", "account_name", "img_path", "service_name", "start_type"]
-        self.l_csv_header_powershell = ["date", "time", "event_code", "path_to_script", "script_block_text"]
-        self.l_csv_header_script_powershell = ["date", "time", "event_code", "cmd"]
-        self.l_csv_header_wmi = ["date", "time", "user", "nameSpace", "Query"]
-        self.l_csv_header_app_exp = ["date", "time", "ExePath", "FixName", "Query"]
-        self.l_csv_header_amcache = ["Date", "time", "name", "id", "sha256", "full_path"]
-        self.l_csv_header_appcompat = ["Date", "time", "name", "sha256", "full_path"]
-        self.l_csv_header_sam = ["Date", "time", "username", "login_count"]
-        self.l_csv_header_usserassit = ["Date", "time", "valueName", "appFocus", "appDuration"]
-        self.l_csv_header_mru = ["Date", "time", "entries"]
-        self.l_csv_header_srum = ["Date", "time", "description"]
-        self.l_csv_header_run  = ["Date", "time", "entrie"]
-        self.l_csv_header_ff_history = ["Date", "time", "url", "visit_count", "visit_type", "isType", "from_visit"]
-        self.l_csv_header_ie_history = ["Date", "time", "url", "visit_count", "visit_type", "isType", "from_visit"]
-        self.l_csv_header_prefetch = ["Date", "time", "name", "path", "nbExec", "sha256"]
-        self.l_csv_header_lnk = ["Date", "time", "description", "working_dir"]
-        self.l_csv_header_mft = ["Date", "time", "source", "fileName", "action", "fileType"]
-        self.l_csv_header_windefender = ["Date", "time", "EventCode", "Severity", "User", "ProcessName", "Path"]
+        self.l_csv_header_7045 = ["Date", "Time", "event_code", "account_name", "img_path", "service_name", "start_type"]
+        self.l_csv_header_powershell = ["Date", "Time", "event_code", "path_to_script", "script_block_text"]
+        self.l_csv_header_script_powershell = ["Date", "Time", "event_code", "cmd"]
+        self.l_csv_header_wmi = ["Date", "Time", "user", "nameSpace", "Query"]
+        self.l_csv_header_app_exp = ["Date", "Time", "ExePath", "FixName", "Query"]
+        self.l_csv_header_amcache = ["Date", "Time", "Name", "id", "FullPath", "Hash"]
+        self.l_csv_header_appcompat = ["Date", "Time", "Name", "FullPath", "Hash"]
+        self.l_csv_header_sam = ["Date", "Time", "username", "login_count"]
+        self.l_csv_header_usserassit = ["Date", "Time", "valueName", "appFocus", "appDuration"]
+        self.l_csv_header_mru = ["Date", "Time", "entries"]
+        self.l_csv_header_srum = ["Date", "Time", "description"]
+        self.l_csv_header_run = ["Date", "Time", "entrie"]
+        self.l_csv_header_ff_history = ["Date", "Time", "url", "visit_count", "visit_type", "isType", "from_visit"]
+        self.l_csv_header_ie_history = ["Date", "Time", "url", "visit_count", "visit_type", "isType", "from_visit"]
+        self.l_csv_header_prefetch = ["Date", "Time", "name", "path", "nbExec", "sha256"]
+        self.l_csv_header_lnk = ["Date", "Time", "description", "working_dir"]
+        self.l_csv_header_mft = ["Date", "Time", "source", "fileName", "action", "fileType"]
+        self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
+                                         "Path", "Action"]
         
         self.logon_res_file = ""
         self.logon_failed_file = ""
@@ -1495,8 +1496,8 @@ class MaximumPlasoParserJson:
             sha256_hash = event.get("sha256_hash", "-")
 
             if self.output_type == "csv":
-                res = "{}|{}|{}|{}".format(ts_date, ts_time, name, identifier)
-                # res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, name, identifier, sha256_hash, full_path)
+                #res = "{}|{}|{}|{}".format(ts_date, ts_time, name, identifier)
+                res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, name, identifier, sha256_hash)
                 self.amcache_res_file.write(res)
 
             else:
@@ -1506,7 +1507,8 @@ class MaximumPlasoParserJson:
                     "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
-                    "identifier": identifier
+                    "identifier": identifier,
+                    "hash": sha256_hash
                 }
                 json.dump(res, self.amcache_res_file)
 
@@ -1526,7 +1528,8 @@ class MaximumPlasoParserJson:
             sha256_hash = event.get("sha256_hash", "-")
 
             if self.output_type == "csv":
-                res = "{}|{}|{}|{}".format(ts_date, ts_time, name, full_path)
+                #res = "{}|{}|{}|{}".format(ts_date, ts_time, name, full_path)
+                res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, name, full_path, sha256_hash)
                 self.app_compat_res_file.write(res)
 
             else:
@@ -1536,7 +1539,8 @@ class MaximumPlasoParserJson:
                     "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
-                    "identifier": full_path
+                    "identifier": full_path,
+                    "hash": sha256_hash
                 }
                 json.dump(res, self.app_compat_res_file)
             self.app_compat_res_file.write('\n')
@@ -1944,7 +1948,7 @@ class MaximumPlasoParserJson:
         :param event: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
-        event_code = "1116"
+        event_code = "1116 - Detection"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
@@ -2000,7 +2004,7 @@ class MaximumPlasoParserJson:
         :param event: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
-        event_code = "1117"
+        event_code = "1117 - Action"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
@@ -2160,10 +2164,6 @@ class MaximumPlasoParserJson:
             }
             json.dump(res, self.logon_res_file)
         self.windefender_res_file.write('\n')
-
-
-
-
 
 
 def parse_args():

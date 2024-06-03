@@ -1,32 +1,40 @@
 # MaximumPlasoParser
 
-Note : further artefact parser will be added over time.
-
-Avg time to parse a 1.4 Go Plaso Timeline : 90 sec. 
-
-
 MPP or MaximumPlasoParser is a python script that will parse a [plaso - Log2Timeline](https://github.com/log2timeline/plaso)  json timeline file.
-The goal is to provide easily readable and straight forward files for the Forensic analyst.
-MPP will create a file for each artefact.
 
-
-The output can be set as json in order to be ingested in a SIEM,
-or CSV for human.
+The goal is to provide easily readable and straight forward evidence files for the Forensic analyst.
+Avg time to parse a 1.4 Go Plaso Timeline : 90 sec. 
 
 
 <ins>For example :</ins>
 
-'4624' windows security event log provide information about a successful user connexion.
-MPP will parse them like so :
+The Human readable CSV format looks like that :
 
 ```csv
+4624 windows security event log :
 Date|time|event_code|subject_user_name|target_user_name|ip_address|ip_port|logon_type
-2022-10-07|16:51:47|4624|DESKTOP-9I162HO$|DWM-1|-|-|2
-2022-10-07|16:51:47|4624|DESKTOP-9I162HO$|SERVICE LOCAL|-|-|5
-[...]
 2022-10-27|09:56:01|4624|DESKTOP-9I162HO$|Système|-|-|5
 2022-10-27|09:56:03|4624|DESKTOP-9I162HO$|Système|-|-|5
 2022-10-27|09:56:06|4624|DESKTOP-9I162HO$|HRO|192.168.10.102|3389|10
+
+Windefender  event log :
+Date|time|EventCode|ThreatName|Severity|User|ProcessName|Path|Action
+2021-01-07|03:35:44|1116 - Detection|HackTool:Win64/Mikatz!dha|High|BROCELIANDE\arthur|C:\Users\Public\beacon.exe|Not Applicable
+2021-01-07|03:35:45|1116 - Detection|HackTool:Win64/Atosev.A|High|NT AUTHORITY\SYSTEM|C:\Users\Public\beacon.exe|Not Applicable
+2021-01-07|03:35:46|1116 - Detection|Behavior:Win32/Atosev.D!sms|Severe|-|C:\Users\Public\beacon.exe|Not Applicable
+2021-01-07|03:35:46|1117 - Action|Behavior:Win32/Atosev.D!sms|Severe|-|C:\Users\Public\beacon.exe|Remove
+
+App Compat cache :
+Date|Time|Name|FullPath|Hash
+2021-01-07|03:39:31|beacon.exe|C:\Users\Public\beacon.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
+2021-01-07|03:41:21|mimikatz.exe|C:\Users\Public\mimikatz.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
+2021-01-07|03:56:55|Bytelocker.exe|C:\Users\Public\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
+2021-01-07|04:02:57|Bytelocker.exe|C:\Users\Arthur\Documents\confidentiel\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
+2021-01-07|04:05:41|Bytelocker.exe|C:\Users\Arthur\Documents\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
+2021-01-07|04:19:41|ActiveDirectorySync.exe|C:\Users\Administrator\Documents\ActiveDirectorySync.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
+
+
+
 ```
 
 Mpp will only work on ***JSON_line*** formated plaso timeline, ***NOT CSV***.
@@ -42,7 +50,7 @@ psteal.py --source /home/hro/DFIR-ORC-WorkStation-DESKTOP-9I162HO -w timeline.js
 Install dependencies : `pip3 install -r requirements.txt`
 
 The only external dependency is [xmltodict](https://pypi.org/project/xmltodict/).
-Thank u for it bro !
+
 
 ## Usage
 
@@ -91,34 +99,33 @@ Set the value to 1 to parse an artefact. 0 otherwise  The default config set eve
 
 Feel free to use the template given with the project "mpp_config.json"
 
-<ins>mpp_config.json content:</ins>
-```json
-{
-  "4624": 1,
-  "4625": 1,
-  "4672": 1,
-  "4648": 1,
-  "4688": 1,
-  "task_scheduler": 1,
-  "remote_rdp": 1,
-  "local_rdp": 1,
-  "bits": 1,
-  "service": 1,
-  "powershell": 1,
-  "powershell_script": 1,
-  "wmi": 1,
-  "app_exp": 1,
-  "amcache": 1,
-  "app_compat": 1,
-  "sam": 1,
-  "user_assist": 1,
-  "mru": 1,
-  "ff_history": 1,
-  "prefetch": 1,
-  "srum": 1,
-  "run": 1,
-  "lnk": 1
-}
+### Artefact parsed
+Note : further artefact parser will be added over time.
+
+The artefacts parsed by MPP are : 
+
+``` bash
+├── Security Evtx (4624, 4625, 4648, 4672, 4688)
+├── System Evtx (7045)
+├── amcache
+├── app_compat_cache
+├── application_experience
+├── bits
+├── ff_history
+├── lnk
+├── local_rdp
+├── mft
+├── mru
+├── powershell
+├── powershell_script
+├── prefetch
+├── remote_rdp
+├── run_key
+├── sam
+├── srum
+├── user_assist
+├── windefender
+└── wmi
 ```
 
 ## Disclamer
