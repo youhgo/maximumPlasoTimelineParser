@@ -2,7 +2,8 @@
 
 MPP or MaximumPlasoParser is a python script that will parse a [plaso - Log2Timeline](https://github.com/log2timeline/plaso)  json timeline file.
 
-The goal is to provide easily readable and straight forward evidence files for the Forensic analyst.
+The goal is to provide an easily readable and straight forward evidence files for the Forensic analyst.
+
 Avg time to parse a 1.4 Go Plaso Timeline : 90 sec. 
 
 
@@ -14,13 +15,11 @@ The Human readable CSV format looks like that :
 4624.csv :
 Date|time|event_code|subject_user_name|target_user_name|ip_address|ip_port|logon_type
 2022-10-27|09:56:01|4624|DESKTOP-9I162HO$|Système|-|-|5
-2022-10-27|09:56:03|4624|DESKTOP-9I162HO$|Système|-|-|5
 2022-10-27|09:56:06|4624|DESKTOP-9I162HO$|HRO|192.168.10.102|3389|10
 
 Windefender.csv :
 Date|time|EventCode|ThreatName|Severity|User|ProcessName|Path|Action
 2021-01-07|03:35:44|1116 - Detection|HackTool:Win64/Mikatz!dha|High|BROCELIANDE\arthur|C:\Users\Public\beacon.exe|Not Applicable
-2021-01-07|03:35:45|1116 - Detection|HackTool:Win64/Atosev.A|High|NT AUTHORITY\SYSTEM|C:\Users\Public\beacon.exe|Not Applicable
 2021-01-07|03:35:46|1116 - Detection|Behavior:Win32/Atosev.D!sms|Severe|-|C:\Users\Public\beacon.exe|Not Applicable
 2021-01-07|03:35:46|1117 - Action|Behavior:Win32/Atosev.D!sms|Severe|-|C:\Users\Public\beacon.exe|Remove
 
@@ -29,8 +28,6 @@ Date|Time|Name|FullPath|Hash
 2021-01-07|03:39:31|beacon.exe|C:\Users\Public\beacon.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
 2021-01-07|03:41:21|mimikatz.exe|C:\Users\Public\mimikatz.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
 2021-01-07|03:56:55|Bytelocker.exe|C:\Users\Public\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
-2021-01-07|04:02:57|Bytelocker.exe|C:\Users\Arthur\Documents\confidentiel\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
-2021-01-07|04:05:41|Bytelocker.exe|C:\Users\Arthur\Documents\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
 2021-01-07|04:19:41|ActiveDirectorySync.exe|C:\Users\Administrator\Documents\ActiveDirectorySync.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
 
 ```
@@ -53,6 +50,10 @@ The only external dependency is [xmltodict](https://pypi.org/project/xmltodict/)
 ## Usage
 
 ```bash
+python3 MaximumPlasoParserJson.py -c "CaseName" --type "csv" -o /home/output/dir/ -t /home/path/to/json/timeline/timeline.json  -m "MachineName"
+```
+
+```bash
 python3 MaximumPlasoParserJson.py --help                                                                                                                 
 usage: MaximumPlasoParserJson.py [-h] -t TIMELINE -o OUTPUT_DIR [-c CASE_NAME] [-s SEPARATOR] [--type csv or json] [-m name of the machine] [--config CONFIG_FILE]
 
@@ -73,8 +74,6 @@ options:
                         name of the machine
   --config CONFIG_FILE  path to the json config file to be used
 
-
-python3 MaximumPlasoParserJson.py -c "CaseName" --type "csv" -o /home/hro/Documents/cyber/working_zone/testMP -t /home/hro/Documents/cyber/working_zone/samples_tl/full_timeline.json  -m "MachineName"
 ```
 
 

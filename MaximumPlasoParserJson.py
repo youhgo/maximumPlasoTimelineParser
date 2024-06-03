@@ -9,6 +9,7 @@ import xmltodict
 import time
 import sys
 
+
 # TODO : Parsing
 # TODO : Parse AV Detection
 # TODO : Parse Firewall Detection
@@ -31,7 +32,8 @@ class MaximumPlasoParserJson:
        None
     """
 
-    def __init__(self, dir_out, output_type="csv", separator="|", case_name=None, config_file=None, machine_name="workstation") -> None:
+    def __init__(self, dir_out, output_type="csv", separator="|", case_name=None, config_file=None,
+                 machine_name="workstation") -> None:
         """
         Constructor for the MaximumPlasoParser Class
 
@@ -97,9 +99,11 @@ class MaximumPlasoParserJson:
             "taskScheduler": re.compile(r'.*TaskScheduler%4Operational\.evtx'),
             "bits": re.compile(r'.*Bits-Client%4Operational\.evtx'),
             "rdp_local": re.compile(r'.*TerminalServices-LocalSessionManager%4Operational\.evtx'),
-            "powershell": re.compile(r'(.*Microsoft-Windows-PowerShell%4Operational\.evtx)|(.*Windows_PowerShell\.evtx)'),
+            "powershell": re.compile(
+                r'(.*Microsoft-Windows-PowerShell%4Operational\.evtx)|(.*Windows_PowerShell\.evtx)'),
             "wmi": re.compile(r'.*Microsoft-Windows-WMI-Activity%4Operational\.evtx'),
-            "application_experience": re.compile(r'.*Microsoft-Windows-Application-Experience%4Program-Telemetry\.evtx'),
+            "application_experience": re.compile(
+                r'.*Microsoft-Windows-Application-Experience%4Program-Telemetry\.evtx'),
             "amcache": re.compile(r'.*(A|a)mcache\.hve'),
             "appCompat": re.compile(r'.*(A|a)mcache\.hve')
         }
@@ -112,7 +116,8 @@ class MaximumPlasoParserJson:
             "powershell": re.compile(r'(Microsoft-Windows-PowerShell)|(PowerShell)'),
             "wmi": re.compile(r'Microsoft-Windows-WMI-Activity'),
             "application_experience": re.compile(r'Microsoft-Windows-Application-Experience'),
-            "windefender": re.compile(r'Microsoft-Windows-Windows Defender') #.*Microsoft-Windows-Windows_Defender%4Operational
+            "windefender": re.compile(r'Microsoft-Windows-Windows Defender')
+            # .*Microsoft-Windows-Windows_Defender%4Operational
         }
         self.d_regex_artefact_by_parser_name = {
             "amcache": re.compile(r'amcache'),
@@ -129,13 +134,13 @@ class MaximumPlasoParserJson:
         }
 
         self.l_csv_header_4624 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                           "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
         self.l_csv_header_4625 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                           "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
         self.l_csv_header_4672 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                           "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
         self.l_csv_header_4648 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                           "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
         self.l_csv_header_4688 = ["Date", "Time", "event_code", "new_process_name", "command_line",
                                   "parent_process_name", "subject_user_name", "target_user_name", "workstation_name"]
         self.l_csv_header_tscheduler = ["Date", "Time", "event_code", "name", "task_name", "instance_id",
@@ -146,7 +151,8 @@ class MaximumPlasoParserJson:
         self.l_csv_header_bits = ["Date", "Time", "event_code", "id", "job_id", "job_title", "job_owner",
                                   "user", "bytes_total", "bytes_transferred", "file_count", "file_length", "file_Time",
                                   "name", "url", "process_path"]
-        self.l_csv_header_7045 = ["Date", "Time", "event_code", "account_name", "img_path", "service_name", "start_type"]
+        self.l_csv_header_7045 = ["Date", "Time", "event_code", "account_name", "img_path", "service_name",
+                                  "start_type"]
         self.l_csv_header_powershell = ["Date", "Time", "event_code", "path_to_script", "script_block_text"]
         self.l_csv_header_script_powershell = ["Date", "Time", "event_code", "cmd"]
         self.l_csv_header_wmi = ["Date", "Time", "user", "nameSpace", "Query"]
@@ -165,7 +171,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_mft = ["Date", "Time", "source", "fileName", "action", "fileType"]
         self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
                                          "Path", "Action"]
-        
+
         self.logon_res_file = ""
         self.logon_failed_file = ""
         self.logon_spe_file = ""
@@ -204,7 +210,7 @@ class MaximumPlasoParserJson:
         :return:
         """
         try:
-            #print("creating {}".format(self.work_dir))
+            # print("creating {}".format(self.work_dir))
             os.makedirs(self.work_dir, exist_ok=True)
             print("result directory is located at : {}".format(self.work_dir))
         except:
@@ -279,8 +285,8 @@ class MaximumPlasoParserJson:
                                                                "remote_rdp", self.output_type)
 
         if self.config.get("local_rdp", 0):
-            self.local_rdp_file =self.initialise_result_file(self.l_csv_header_local_rdp,
-                                                             "local_rdp", self.output_type)
+            self.local_rdp_file = self.initialise_result_file(self.l_csv_header_local_rdp,
+                                                              "local_rdp", self.output_type)
 
         if self.config.get("bits", 0):
             self.bits_file = self.initialise_result_file(self.l_csv_header_bits, "bits", self.output_type)
@@ -309,7 +315,6 @@ class MaximumPlasoParserJson:
                                                                 self.output_type)
 
         if self.config.get("app_compat"):
-
             self.app_compat_res_file = self.initialise_result_file(self.l_csv_header_appcompat,
                                                                    "app_compat_cache", self.output_type)
         if self.config.get("sam"):
@@ -320,7 +325,6 @@ class MaximumPlasoParserJson:
                                                                 self.output_type)
 
         if self.config.get("mru"):
-
             self.mru_res_file = self.initialise_result_file(self.l_csv_header_mru, "mru", self.output_type)
 
         if self.config.get("srum"):
@@ -400,7 +404,7 @@ class MaximumPlasoParserJson:
         :param type_artefact: (str) type of artefact
         :return: None
         """
-        #print('type artefact is {}'.format(type_artefact))
+        # print('type artefact is {}'.format(type_artefact))
         if type_artefact == "evtx":
             self.parse_logs(line)
         if type_artefact == "hive":
@@ -549,7 +553,6 @@ class MaximumPlasoParserJson:
         if log_type == "windefender":
             self.parse_windows_defender(line)
 
-
     #  ----------------------------------------  Wmi ---------------------------------------------
     def parse_wmi(self, event):
         """
@@ -586,8 +589,15 @@ class MaximumPlasoParserJson:
         consumer = op_dict.get("CONSUMER", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, operation_name, user, namespace,
-                                                  consumer, cause, query)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                              ts_time, self.separator,
+                                                              event_code, self.separator,
+                                                              operation_name, self.separator,
+                                                              user, self.separator,
+                                                              namespace, self.separator,
+                                                              consumer, self.separator,
+                                                              cause, self.separator,
+                                                              query)
 
             self.wmi_file.write(res)
         else:
@@ -629,12 +639,19 @@ class MaximumPlasoParserJson:
         consumer = op_dict.get("CONSUMER", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, operation_name, user, namespace,
-                                                      consumer, cause, query)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                              ts_time, self.separator,
+                                                              event_code, self.separator,
+                                                              operation_name, self.separator,
+                                                              user, self.separator,
+                                                              namespace, self.separator,
+                                                              consumer, self.separator,
+                                                              cause, self.separator,
+                                                              query)
 
             self.wmi_file.write(res)
         else:
-            
+
             res = {
                 "case_name": self.case_name,
                 "workstation_name": self.machine_name,
@@ -683,11 +700,16 @@ class MaximumPlasoParserJson:
         ip_addr = event_data.get("Param3", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|InitConnexion|{}|{}".format(ts_date, ts_time, event_code, user_name, ip_addr)
+            res = "{}{}{}{}{}{}InitConnexion{}{}{}{}".format(ts_date, self.separator,
+                                                             ts_time, self.separator,
+                                                             event_code, self.separator,
+                                                             self.separator,
+                                                             user_name, self.separator,
+                                                             ip_addr)
             self.remote_rdp_file.write(res)
 
         else:
-            
+
             res = {
                 "case_name": self.case_name,
                 "workstation_name": self.machine_name,
@@ -733,12 +755,20 @@ class MaximumPlasoParserJson:
             reason = "-"
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, user_name, ip_addr,
-                                                         session_id, source, target_session, reason_n, reason)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                                  ts_time, self.separator,
+                                                                  event_code, self.separator,
+                                                                  user_name, self.separator,
+                                                                  ip_addr, self.separator,
+                                                                  session_id, self.separator,
+                                                                  source, self.separator,
+                                                                  target_session, self.separator,
+                                                                  reason_n, self.separator,
+                                                                  reason)
             self.local_rdp_file.write(res)
 
         else:
-            
+
             res = {
                 "case_name": self.case_name,
                 "workstation_name": self.machine_name,
@@ -837,14 +867,26 @@ class MaximumPlasoParserJson:
                 process_path = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|{}|".format(ts_date, ts_time, event_code, id, job_id,
-                                                                            job_title, job_owner, user, bytes_total,
-                                                                            bytes_transferred, file_count, file_length,
-                                                                            file_time, name, url, process_path)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                                                          ts_time, self.separator,
+                                                                                          event_code, self.separator,
+                                                                                          identifiant, self.separator,
+                                                                                          job_id, self.separator,
+                                                                                          job_title, self.separator,
+                                                                                          job_owner, self.separator,
+                                                                                          user, self.separator,
+                                                                                          bytes_total, self.separator,
+                                                                                          bytes_transferred, self.separator,
+                                                                                          file_count, self.separator,
+                                                                                          file_length, self.separator,
+                                                                                          file_time, self.separator,
+                                                                                          name, self.separator,
+                                                                                          url, self.separator,
+                                                                                          process_path)
             self.bits_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -885,7 +927,7 @@ class MaximumPlasoParserJson:
         if event_code == 4672 and self.logon_spe_file:
             self.parse_spe_logon_from_xml(event)
 
-        if event_code == 4648 and self.logon_exp_file :
+        if event_code == 4648 and self.logon_exp_file:
             self.parse_logon_exp_from_xml(event)
 
         if event_code == 4688 and self.new_proc_file:
@@ -923,12 +965,18 @@ class MaximumPlasoParserJson:
                 logon_type = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                                   ip_address, ip_port, logon_type)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          subject_user_name, self.separator,
+                                                          target_user_name, self.separator,
+                                                          ip_address, self.separator,
+                                                          ip_port, self.separator,
+                                                          logon_type)
             self.logon_res_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -976,12 +1024,18 @@ class MaximumPlasoParserJson:
                 logon_type = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                                   ip_address, ip_port, logon_type)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          subject_user_name, self.separator,
+                                                          target_user_name, self.separator,
+                                                          ip_address, self.separator,
+                                                          ip_port, self.separator,
+                                                          logon_type)
             self.logon_failed_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1029,12 +1083,18 @@ class MaximumPlasoParserJson:
                 logon_type = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                                   ip_address, ip_port, logon_type)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          subject_user_name, self.separator,
+                                                          target_user_name, self.separator,
+                                                          ip_address, self.separator,
+                                                          ip_port, self.separator,
+                                                          logon_type)
             self.logon_spe_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1082,12 +1142,18 @@ class MaximumPlasoParserJson:
                 logon_type = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                                   ip_address, ip_port, logon_type)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          subject_user_name, self.separator,
+                                                          target_user_name, self.separator,
+                                                          ip_address, self.separator,
+                                                          ip_port, self.separator,
+                                                          logon_type)
             self.logon_exp_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1135,12 +1201,18 @@ class MaximumPlasoParserJson:
                 parent_proc_name = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, subject_user_name, target_user_name,
-                                                   cmd_line, new_proc_name, parent_proc_name)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          subject_user_name, self.separator,
+                                                          target_user_name, self.separator,
+                                                          cmd_line, self.separator,
+                                                          new_proc_name, self.separator,
+                                                          parent_proc_name)
             self.new_proc_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1199,13 +1271,18 @@ class MaximumPlasoParserJson:
                 start_type = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, account_name, img_path, service_name,
-                                             start_type)
+            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  event_code, self.separator,
+                                                  account_name, self.separator,
+                                                  img_path, self.separator,
+                                                  service_name, self.separator,
+                                                  start_type)
 
             self.service_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1272,12 +1349,20 @@ class MaximumPlasoParserJson:
                 user_context = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, name, task_name,
-                                                         instance_id, action_name, result_code, user_name, user_context)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                                  ts_time, self.separator,
+                                                                  event_code, self.separator,
+                                                                  name, self.separator,
+                                                                  task_name, self.separator,
+                                                                  instance_id, self.separator,
+                                                                  action_name, self.separator,
+                                                                  result_code, self.separator,
+                                                                  user_name, self.separator,
+                                                                  user_context)
             self.task_scheduler_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1354,11 +1439,15 @@ class MaximumPlasoParserJson:
                 script_block_text = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, path_to_script, script_block_text)
+            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              event_code, self.separator,
+                                              path_to_script, self.separator,
+                                              script_block_text)
             self.powershell_script_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1395,11 +1484,14 @@ class MaximumPlasoParserJson:
                         cmdu = i.split("HostApplication=")[1].replace("\n", " ").replace("\t", "").replace("\r", "")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}".format(ts_date, ts_time, event_code, cmdu)
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                          ts_time, self.separator,
+                                          event_code, self.separator,
+                                          cmdu)
             self.powershell_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1441,11 +1533,15 @@ class MaximumPlasoParserJson:
         exe_path = evt_as_json.get("Event", {}).get("UserData", {}).get("CompatibilityFixEvent", {}).get("ExePath")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, fix_name, exe_path)
+            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              event_code, self.separator,
+                                              fix_name, self.separator,
+                                              exe_path)
             self.app_exp_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1496,12 +1592,16 @@ class MaximumPlasoParserJson:
             sha256_hash = event.get("sha256_hash", "-")
 
             if self.output_type == "csv":
-                #res = "{}|{}|{}|{}".format(ts_date, ts_time, name, identifier)
-                res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, name, identifier, sha256_hash)
+                # res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, name, self.separator, identifier)
+                res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  name, self.separator,
+                                                  identifier, self.separator,
+                                                  sha256_hash)
                 self.amcache_res_file.write(res)
 
             else:
-                
+
                 res = {
                     "caseName": self.case_name,
                     "workstation_name": self.machine_name,
@@ -1528,12 +1628,16 @@ class MaximumPlasoParserJson:
             sha256_hash = event.get("sha256_hash", "-")
 
             if self.output_type == "csv":
-                #res = "{}|{}|{}|{}".format(ts_date, ts_time, name, full_path)
-                res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, name, full_path, sha256_hash)
+                # res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,ts_time, self.separator,name, self.separator,full_path)
+                res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  name, self.separator,
+                                                  full_path, self.separator,
+                                                  sha256_hash)
                 self.app_compat_res_file.write(res)
 
             else:
-                
+
                 res = {
                     "caseName": self.case_name,
                     "workstation_name": self.machine_name,
@@ -1557,11 +1661,14 @@ class MaximumPlasoParserJson:
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}".format(ts_date, ts_time, user_name, login_count)
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                          ts_time, self.separator,
+                                          user_name, self.separator,
+                                          login_count)
             self.sam_res_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1585,12 +1692,15 @@ class MaximumPlasoParserJson:
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, value_name, application_focus_count,
-                                          application_focus_duration)
+            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              value_name, self.separator,
+                                              application_focus_count, self.separator,
+                                              application_focus_duration)
             self.user_assist_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1616,11 +1726,14 @@ class MaximumPlasoParserJson:
             name = event.get("name", "-")
 
             if self.output_type == "csv":
-                res = "{}|{}|{}|{}".format(ts_date, ts_time, name, shell_item_path)
+                res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              name, self.separator,
+                                              shell_item_path)
                 self.mru_res_file.write(res)
 
             else:
-                
+
                 res = {
                     "caseName": self.case_name,
                     "workstation_name": self.machine_name,
@@ -1639,10 +1752,13 @@ class MaximumPlasoParserJson:
                 cleaned = re.sub(header, '', entrie).strip()
                 if cleaned:
                     if self.output_type == "csv":
-                        res = "{}|{}|-|{}".format(ts_date, ts_time, cleaned)
+                        res = "{}{}{}{}-{}{}".format(ts_date, self.separator,
+                                                     ts_time, self.separator,
+                                                     self.separator,
+                                                     cleaned)
                         self.mru_res_file.write(res)
                     else:
-                        
+
                         res = {
                             "caseName": self.case_name,
                             "workstation_name": self.machine_name,
@@ -1665,10 +1781,12 @@ class MaximumPlasoParserJson:
         if entries:
             for entrie in entries:
                 if self.output_type == "csv":
-                    res = "{}|{}|{}".format(ts_date, ts_time, entrie)
+                    res = "{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              entrie)
                     self.run_res_file.write(res)
                 else:
-                    
+
                     res = {
                         "caseName": self.case_name,
                         "workstation_name": self.machine_name,
@@ -1706,11 +1824,13 @@ class MaximumPlasoParserJson:
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type == "csv":
-            res = "{}|{}|{}".format(ts_date, ts_time, description)
+            res = "{}{}{}{}{}".format(ts_date, self.separator,
+                                      ts_time, self.separator,
+                                      description)
             self.srum_res_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1737,10 +1857,16 @@ class MaximumPlasoParserJson:
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, url, visit_count, visit_type, is_typed, from_visit)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                      ts_time, self.separator,
+                                                      url, self.separator,
+                                                      visit_count, self.separator,
+                                                      visit_type, self.separator,
+                                                      is_typed, self.separator,
+                                                      from_visit)
             self.ff_history_res_file.write(res)
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1781,10 +1907,14 @@ class MaximumPlasoParserJson:
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}".format(ts_date, ts_time, executable, path_hints, run_count)
+            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              executable, self.separator,
+                                              path_hints, self.separator,
+                                              run_count)
             self.prefetch_res_file.write(res)
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -1809,10 +1939,13 @@ class MaximumPlasoParserJson:
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         if description != "-" and working_directory != "-":
             if self.output_type == "csv":
-                res = "{}|{}|{}|{}".format(ts_date, ts_time, description, working_directory)
+                res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                              ts_time, self.separator,
+                                              description, self.separator,
+                                              working_directory)
                 self.lnk_res_file.write(res)
             else:
-                
+
                 res = {
                     "caseName": self.case_name,
                     "workstation_name": self.machine_name,
@@ -1842,7 +1975,7 @@ class MaximumPlasoParserJson:
         elif parser in ["filestat"] and re.search(reg_ntfs, json.dumps(line)):
             self.parse_filestat(line)
 
-#TODO: Improve name regex
+    # TODO: Improve name regex
     def parse_usnjrl(self, event):
         """
         :param event: (dict) dict containing one line of the plaso timeline,
@@ -1866,7 +1999,12 @@ class MaximumPlasoParserJson:
                 pass
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, "USNJRNL", "N/A", update_reason, file_name)
+            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  "USNJRNL", self.separator,
+                                                  "N/A", self.separator,
+                                                  update_reason, self.separator,
+                                                  file_name)
             self.mft_res_file.write(res)
         else:
             res = {
@@ -1886,12 +2024,17 @@ class MaximumPlasoParserJson:
         file_type = event.get("file_entry_type")
         action = event.get("timestamp_desc")
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, 'FILESTAT', file_type, action, file_name_path)
+            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  'FILESTAT', self.separator,
+                                                  file_type, self.separator,
+                                                  action, self.separator,
+                                                  file_name_path)
             self.mft_res_file.write(res)
         else:
             res = {
                 "caseName": self.case_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time,),
+                "timestamp": "{}T{}".format(ts_date, ts_time, ),
                 "workstation_name": self.machine_name,
                 "action": action,
                 "file_type": file_type,
@@ -1906,13 +2049,18 @@ class MaximumPlasoParserJson:
         file_type = event.get("file_entry_type")
         action = event.get("timestamp_desc")
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, "MFT", file_type, action, file_name_path)
+            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  "MFT", self.separator,
+                                                  file_type, self.separator,
+                                                  action, self.separator,
+                                                  file_name_path)
             self.mft_res_file.write(res)
 
         else:
             res = {
                 "caseName": self.case_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time,),
+                "timestamp": "{}T{}".format(ts_date, ts_time, ),
                 "workstation_name": self.machine_name,
                 "action": action,
                 "file_type": file_type,
@@ -1936,10 +2084,10 @@ class MaximumPlasoParserJson:
             self.parse_windef_action_from_xml(line)
         if event_code in ["1006"] and self.windefender_res_file:
             pass
-            #self.parse_windef_detection_from_xml_legacy(line)
+            # self.parse_windef_detection_from_xml_legacy(line)
         if event_code in ["1007"] and self.windefender_res_file:
             pass
-            #self.parse_windef_action_from_xml_legacy(line)
+            # self.parse_windef_action_from_xml_legacy(line)
 
     def parse_windef_detection_from_xml(self, event):
         """
@@ -1976,12 +2124,18 @@ class MaximumPlasoParserJson:
                 path = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
-                                                   detection_user, process_name, action)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          threat_name, self.separator,
+                                                          severity, self.separator,
+                                                          detection_user, self.separator,
+                                                          process_name, self.separator,
+                                                          action)
             self.windefender_res_file.write(res)
 
         else:
-            
+
             res = {
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
@@ -2032,8 +2186,14 @@ class MaximumPlasoParserJson:
                 path = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
-                                                   detection_user, process_name, action)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          threat_name, self.separator,
+                                                          severity, self.separator,
+                                                          detection_user, self.separator,
+                                                          process_name, self.separator,
+                                                          action)
             self.windefender_res_file.write(res)
 
         else:
@@ -2088,8 +2248,14 @@ class MaximumPlasoParserJson:
             elif data.get("@Name", "") == "Path":
                 path = data.get("#text", "-")
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
-                                                   detection_user, process_name, action)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          threat_name, self.separator,
+                                                          severity, self.separator,
+                                                          detection_user, self.separator,
+                                                          process_name, self.separator,
+                                                          action)
             self.windefender_res_file.write(res)
 
         else:
@@ -2144,8 +2310,14 @@ class MaximumPlasoParserJson:
                 path = data.get("#text", "-")
 
         if self.output_type == "csv":
-            res = "{}|{}|{}|{}|{}|{}|{}|{}".format(ts_date, ts_time, event_code, threat_name, severity,
-                                                   detection_user, process_name, action)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          threat_name, self.separator,
+                                                          severity, self.separator,
+                                                          detection_user, self.separator,
+                                                          process_name, self.separator,
+                                                          action)
             self.windefender_res_file.write(res)
 
         else:
@@ -2247,7 +2419,6 @@ if __name__ == '__main__':
         exit(1)
 
     print("Finished in {} secondes".format(time.time() - start_time))
-
 
 """
 location": "Microsoft-Windows-Windows Defender%4Operational.evtx
