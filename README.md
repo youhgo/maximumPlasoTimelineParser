@@ -43,6 +43,13 @@ Mpp will only work on ***JSON_line*** formated plaso timeline, ***NOT CSV***.
 psteal.py --source /home/hro/DFIR-ORC-WorkStation-DESKTOP-9I162HO -w timeline.json -o json_line
 ```
 
+
+Sometimes the results files contains duplicated line.
+To remove them, I've provided a script "clean_duplicate.sh":
+```bash
+bash clean_duplicate.sh /home/path/to/MPP/output/mpp_MachineName_YYYY-MM-DDTHH:mm:SS
+```
+
 ## Configuration
 
 Install dependencies : `pip3 install -r requirements.txt`
