@@ -2,14 +2,17 @@
 
 MPP or MaximumPlasoParser is a python script that will parse a [plaso - Log2Timeline](https://github.com/log2timeline/plaso)  json timeline file.
 
-The goal is to provide an easily readable and straight forward evidence files for the Forensic analyst.
+The goal is to regroup artefacts by categories in some easily readable and straight forward files.
 
-Avg time to parse a 1.4 Go Plaso Timeline : 90 sec. 
+MPP : 
+* Regroup Artefacts by categories;
+* Provide Human Readable output;
+* Provide Json output (for SIEM ingestion);
+* Is Fast (Avg time to parse a 1.4 Go Timeline : 90 sec);
+* Easy to use and install (only 1 file).
 
 
-<ins>For example :</ins>
-
-The Human readable CSV format looks like that :
+<ins>For example, Human readable (CSV) output looks like that :</ins>
 
 ```csv
 4624.csv :
@@ -29,9 +32,9 @@ Date|Time|Name|FullPath|Hash
 2021-01-07|03:41:21|mimikatz.exe|C:\Users\Public\mimikatz.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
 2021-01-07|03:56:55|Bytelocker.exe|C:\Users\Public\Bytelocker.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
 2021-01-07|04:19:41|ActiveDirectorySync.exe|C:\Users\Administrator\Documents\ActiveDirectorySync.exe|e55e5b02ad40e9846a3cd83b00eec225fb98781c6f58a19697bf66a586f77672
-
 ```
 
+## Notes : 
 Mpp will only work on ***JSON_line*** formated plaso timeline, ***NOT CSV***.
 
 <ins> Example of cmd to create a compatible timeline:</ins>
