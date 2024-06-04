@@ -64,8 +64,8 @@ python3 MaximumPlasoParserJson.py -c "CaseName" --type "csv" -o /home/output/dir
 ```
 
 ```bash
-python3 MaximumPlasoParserJson.py --help                                                                                                                 
-usage: MaximumPlasoParserJson.py [-h] -t TIMELINE -o OUTPUT_DIR [-c CASE_NAME] [-s SEPARATOR] [--type csv or json] [-m name of the machine] [--config CONFIG_FILE]
+python3 MaximumPlasoParserJson.py --help                                                             
+usage: MaximumPlasoParserJson.py [-h] -t TIMELINE -o OUTPUT_DIR [-c CASE_NAME] [-s SEPARATOR] [--type csv or json or all for both] [-m name of the machine] [--config CONFIG_FILE]
 
 Solution to parse a json plaso timeline
 
@@ -79,11 +79,11 @@ options:
                         name of the case u working on
   -s SEPARATOR, --separator SEPARATOR
                         separator that will be used on csv files
-  --type csv or json    type of the output file format : csv or json. Default is csv
+  --type csv or json or all for both
+                        type of the output file format : csv or json or both. Default is csv
   -m name of the machine, --machine_name name of the machine
                         name of the machine
   --config CONFIG_FILE  path to the json config file to be used
-
 ```
 
 
@@ -94,9 +94,9 @@ options:
 | -t       | --timeline     | Yes       | full path to the timeline. Must be a plaso timeline with json_line format                                                                        |
 | -o       | --output       | Yes       | Path of the directory where all the file will be written                                                                                         |
 | -c       | --casename     | No        | Name of your forensic case, will be used as a json key if json output format is choosen (will be used as an index for further Elastic ingestion) |
-| -s       | --separator    | No        | Separator that will be used in csv output files if CSV output format is choosen. Default is \| (pipe)                                            |
+| -s       | --separator    | No        | Separator that will be used in csv output files if CSV output format is choosen. Default is "\|" (pipe)                                          |
 | -m       | --machine_name | No        | Name of the machine, it will be use to create root folder and in json formated output                                                            |
-| --type   |                | No        | Output format of results file, can be csv or json. Default is CSV. (Json format is for easy ELK ingestion.)                                      |
+| --type   |                | No        | Output format of results file, can be "csv", "json" or "all". "all" provide CSV and JSON file output. Default is CSV.                            |
 | --config |                | No        | Full path to a json config file. See details below                                                                                               |
 
 
