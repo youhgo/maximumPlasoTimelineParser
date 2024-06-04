@@ -17,7 +17,6 @@ import sys
 
 # TODO : General
 # TODO : Parse Task Scheduler event 4698 + 4702
-# TODO : Be able to produce CSV and JSON output in 1 run
 
 
 class MaximumPlasoParserJson:
