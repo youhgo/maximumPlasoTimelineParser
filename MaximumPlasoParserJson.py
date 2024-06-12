@@ -17,6 +17,7 @@ import sys
 
 # TODO : General
 # TODO : Parse Task Scheduler event 4698 + 4702
+# TODO : ADD Artefact Name to JSON for ELK
 
 
 class MaximumPlasoParserJson:
@@ -798,7 +799,8 @@ class MaximumPlasoParserJson:
                 "namespace": namespace,
                 "consumer": consumer,
                 "cause": cause,
-                "query": query
+                "query": query,
+                "Artefact": "WMI"
             }
             json.dump(res, self.wmi_file_json)
             self.wmi_file_json.write('\n')
@@ -849,7 +851,8 @@ class MaximumPlasoParserJson:
                 "namespace": namespace,
                 "consumer": consumer,
                 "cause": cause,
-                "query": query
+                "query": query,
+                "Artefact": "WMI"
             }
             json.dump(res, self.wmi_file_json)
             self.wmi_file_json.write('\n')
@@ -901,7 +904,8 @@ class MaximumPlasoParserJson:
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "event_code": event_code,
                 "user_name": user_name,
-                "ip_address": ip_addr
+                "ip_address": ip_addr,
+                "Artefact": "EVTX_REMOTE_RDP"
             }
             json.dump(res, self.remote_rdp_file_json)
             self.remote_rdp_file_json.write('\n')
@@ -963,7 +967,8 @@ class MaximumPlasoParserJson:
                 "source": source,
                 "target_session": target_session,
                 "reason_n": reason_n,
-                "reason": reason
+                "reason": reason,
+                "Artefact": "EVTX_LOCAL_RDP"
             }
             json.dump(res, self.local_rdp_file_json)
             self.local_rdp_file_json.write('\n')
@@ -1085,7 +1090,8 @@ class MaximumPlasoParserJson:
                 "file_time": file_time,
                 "name": name,
                 "url": url,
-                "process_path": process_path
+                "process_path": process_path,
+                "Artefact": "BITS"
             }
             json.dump(res, self.bits_file_json)
             self.bits_file_json.write('\n')
@@ -1171,7 +1177,8 @@ class MaximumPlasoParserJson:
                 "target_user_name": target_user_name,
                 "ip_address": ip_address,
                 "ip_port": ip_port,
-                "logon_type": logon_type
+                "logon_type": logon_type,
+                "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.logon_res_file_json)
             self.logon_res_file_json.write('\n')
@@ -1228,7 +1235,8 @@ class MaximumPlasoParserJson:
                 "target_user_name": target_user_name,
                 "ip_address": ip_address,
                 "ip_port": ip_port,
-                "logon_type": logon_type
+                "logon_type": logon_type,
+                "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.logon_failed_file_json)
             self.logon_failed_file_json.write('\n')
@@ -1285,7 +1293,8 @@ class MaximumPlasoParserJson:
                 "target_user_name": target_user_name,
                 "ip_address": ip_address,
                 "ip_port": ip_port,
-                "logon_type": logon_type
+                "logon_type": logon_type,
+                "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.logon_spe_file_json)
             self.logon_spe_file_json.write('\n')
@@ -1343,7 +1352,8 @@ class MaximumPlasoParserJson:
                 "target_user_name": target_user_name,
                 "ip_address": ip_address,
                 "ip_port": ip_port,
-                "logon_type": logon_type
+                "logon_type": logon_type,
+                "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.logon_exp_file_json)
             self.logon_exp_file_json.write('\n')
@@ -1401,7 +1411,8 @@ class MaximumPlasoParserJson:
                 "target_user_name": target_user_name,
                 "cmd_line": cmd_line,
                 "new_process_name": new_proc_name,
-                "parent_process_name": parent_proc_name
+                "parent_process_name": parent_proc_name,
+                "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.new_proc_file_json)
             self.new_proc_file_json.write('\n')
@@ -1470,7 +1481,8 @@ class MaximumPlasoParserJson:
                 "account_name": account_name,
                 "imgage_path": img_path,
                 "service_name": service_name,
-                "start_type": start_type
+                "start_type": start_type,
+                "Artefact": "EVTX_SYSTEM"
             }
             json.dump(res, self.service_file_json)
             self.service_file_json.write('\n')
@@ -1552,7 +1564,8 @@ class MaximumPlasoParserJson:
                 "action_name": action_name,
                 "result_code": result_code,
                 "user_name": user_name,
-                "user_context": user_context
+                "user_context": user_context,
+                "Artefact": "EVTX_TASK_SCHEDULER"
             }
 
             json.dump(res, self.task_scheduler_file_json)
@@ -1630,7 +1643,8 @@ class MaximumPlasoParserJson:
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "path_to_script": path_to_script,
-                "script_block_text": script_block_text
+                "script_block_text": script_block_text,
+                "Artefact": "EVTX_POWERSHELL"
             }
 
             json.dump(res, self.powershell_script_file_json)
@@ -1671,7 +1685,8 @@ class MaximumPlasoParserJson:
                 "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
-                "cmdu": cmdu
+                "cmdu": cmdu,
+                "Artefact": "POWERSHELL"
             }
 
             json.dump(res, self.powershell_file_json)
@@ -1721,7 +1736,8 @@ class MaximumPlasoParserJson:
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "eventCode": event_code,
                 "fix_name": fix_name,
-                "exe_path": exe_path
+                "exe_path": exe_path,
+                "Artefact": "APP_EXPERIENCE"
             }
 
             json.dump(res, self.app_exp_file_json)
@@ -1786,7 +1802,8 @@ class MaximumPlasoParserJson:
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
                     "identifier": identifier,
-                    "hash": sha256_hash
+                    "hash": sha256_hash,
+                    "Artefact": "AMCACHE"
                 }
                 json.dump(res, self.amcache_res_file_json)
                 self.amcache_res_file_json.write('\n')
@@ -1821,7 +1838,8 @@ class MaximumPlasoParserJson:
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
                     "identifier": full_path,
-                    "hash": sha256_hash
+                    "hash": sha256_hash,
+                    "Artefact": "APP_COMPAT_CACHE"
                 }
                 json.dump(res, self.app_compat_res_file_json)
                 self.app_compat_res_file_json.write('\n')
@@ -1851,7 +1869,8 @@ class MaximumPlasoParserJson:
                 "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "user_name": user_name,
-                "login_count": login_count
+                "login_count": login_count,
+                "Artefact": "SAM"
             }
             json.dump(res, self.sam_res_file_json)
             self.sam_res_file_json.write('\n')
@@ -1884,7 +1903,8 @@ class MaximumPlasoParserJson:
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "value_name": value_name,
                 "application_focus_count": application_focus_count,
-                "application_focus_duration": application_focus_duration
+                "application_focus_duration": application_focus_duration,
+                "Artefact": "USER_ASSIST"
             }
             json.dump(res, self.user_assist_file_json)
             self.user_assist_file_json.write('\n')
@@ -1916,7 +1936,8 @@ class MaximumPlasoParserJson:
                     "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
-                    "shell_item_path": shell_item_path
+                    "shell_item_path": shell_item_path,
+                    "Artefact": "MRU"
                 }
                 json.dump(res, self.mru_res_file_json)
                 self.mru_res_file_json.write('\n')
@@ -1941,7 +1962,8 @@ class MaximumPlasoParserJson:
                             "caseName": self.case_name,
                             "workstation_name": self.machine_name,
                             "timestamp": "{}T{}".format(ts_date, ts_time),
-                            "mru_entrie": cleaned
+                            "mru_entrie": cleaned,
+                            "Artefact": "MRU"
                         }
                         json.dump(res, self.mru_res_file_json)
                         self.mru_res_file_json.write('\n')
@@ -1970,7 +1992,8 @@ class MaximumPlasoParserJson:
                         "caseName": self.case_name,
                         "workstation_name": self.machine_name,
                         "timestamp": "{}T{}".format(ts_date, ts_time),
-                        "run_entrie": entrie
+                        "run_entrie": entrie,
+                        "Artefact": "RUN_KEY"
                     }
                     json.dump(res, self.run_res_file_json)
                     self.run_res_file_json.write('\n')
@@ -2017,7 +2040,8 @@ class MaximumPlasoParserJson:
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
-                "description": description
+                "description": description,
+                "Artefact": "SRUM"
             }
             json.dump(res, self.srum_res_file_json)
             self.srum_res_file_json.write('\n')
@@ -2059,6 +2083,7 @@ class MaximumPlasoParserJson:
                 "visit_type": visit_type,
                 "is_typed": is_typed,
                 "from_visit": from_visit,
+                "Artefact": "FF_HISTORY"
             }
             json.dump(res, self.ff_history_res_file_json)
             self.ff_history_res_file_json.write('\n')
@@ -2107,7 +2132,8 @@ class MaximumPlasoParserJson:
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "executable": executable,
                 "path_hints": path_hints,
-                "run_count": run_count
+                "run_count": run_count,
+                "Artefact": "PREFETCH"
             }
             json.dump(res, self.prefetch_res_file_json)
             self.prefetch_res_file_json.write('\n')
@@ -2138,7 +2164,8 @@ class MaximumPlasoParserJson:
                     "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "description": description,
-                    "working_directory": working_directory
+                    "working_directory": working_directory,
+                    "Artefact": "LNK"
                 }
                 json.dump(res, self.lnk_res_file_json)
                 self.lnk_res_file_json.write('\n')
@@ -2192,8 +2219,8 @@ class MaximumPlasoParserJson:
                                                   "N/A", self.separator,
                                                   update_reason, self.separator,
                                                   file_name)
-            self.mft_res_file_json.write(res)
-            self.mft_res_file_json.write('\n')
+            self.mft_res_file_csv.write(res)
+            self.mft_res_file_csv.write('\n')
 
         if self.output_type in ["json", "all"]:
             res = {
@@ -2201,7 +2228,9 @@ class MaximumPlasoParserJson:
                 "timestamp": "{}T{}".format(ts_date, ts_time),
                 "workstation_name": self.machine_name,
                 "message": msg,
-                "file_name": file_name
+                "file_name": file_name,
+                "Artefact": "NTFS-USN"
+
             }
             json.dump(res, self.mft_res_file_json)
             self.mft_res_file_json.write('\n')
@@ -2227,7 +2256,8 @@ class MaximumPlasoParserJson:
                 "workstation_name": self.machine_name,
                 "action": action,
                 "file_type": file_type,
-                "path": file_name_path
+                "path": file_name_path,
+                "Artefact": "NTFS_FILSTAT"
             }
             json.dump(res, self.mft_res_file_json)
             self.mft_res_file_json.write('\n')
@@ -2254,7 +2284,8 @@ class MaximumPlasoParserJson:
                 "workstation_name": self.machine_name,
                 "action": action,
                 "file_type": file_type,
-                "path": file_name_path
+                "path": file_name_path,
+                "Artefact": "NTFS_MFT"
             }
             json.dump(res, self.mft_res_file_json)
             self.mft_res_file_json.write('\n')
@@ -2340,7 +2371,8 @@ class MaximumPlasoParserJson:
                 "detection_user": detection_user,
                 "process_name": process_name,
                 "path": path,
-                "action": action
+                "action": action,
+                "Artefact": "EVTX_WINDOWS_DEFENDER"
             }
             json.dump(res, self.windefender_res_file_json)
             self.windefender_res_file_json.write('\n')
@@ -2402,7 +2434,8 @@ class MaximumPlasoParserJson:
                 "detection_user": detection_user,
                 "process_name": process_name,
                 "path": path,
-                "action": action
+                "action": action,
+                "Artefact": "EVTX_WINDOWS_DEFENDER"
             }
             json.dump(res, self.windefender_res_file_json)
         self.windefender_res_file_json.write('\n')
@@ -2463,7 +2496,8 @@ class MaximumPlasoParserJson:
                 "detection_user": detection_user,
                 "process_name": process_name,
                 "path": path,
-                "action": action
+                "action": action,
+                "Artefact": "EVTX_WINDOWS_DEFENDER"
             }
             json.dump(res, self.logon_res_file_json)
             self.windefender_res_file_json.write('\n')
@@ -2525,7 +2559,8 @@ class MaximumPlasoParserJson:
                 "detection_user": detection_user,
                 "process_name": process_name,
                 "path": path,
-                "action": action
+                "action": action,
+                "Artefact": "EVTX_WINDOWS_DEFENDER"
             }
             json.dump(res, self.windefender_res_file_json)
             self.windefender_res_file_json.write('\n')
@@ -2626,5 +2661,15 @@ location": "Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
 location": "Microsoft-Windows-Winlogon%4Operational.evtx
 location": "Microsoft-Windows-WinRM%4Operational.evtx
 location": "Microsoft-Windows-WMI-Activity%4Operational.evtx
+
+4608	Windows is starting up.
+This event is generated when a Windows machine is started. It is logged on domain controllers and member computers. 
+ 	4609	Windows is shutting down.
+This event is generated when a Windows machine is shutting down. It is logged on domain controllers and member computers.  
+ 	1102	The audit log was cleared.
+This event is generated whenever the security log is cleared. It is logged on domain controllers and member computers.  
+ 	4614	A notification package has been loaded by the Security Account Manager.
+This event is generated when a user attempts to change their password. It is logged on domain controllers and member computers. 
+
 
 """
