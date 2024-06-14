@@ -17,7 +17,7 @@ import sys
 
 # TODO : General
 # TODO : Parse Task Scheduler event 4698 + 4702
-# TODO : ADD Artefact Name to JSON for ELK
+# TODO : ADD Event id description
 
 
 class MaximumPlasoParserJson:
@@ -1917,56 +1917,86 @@ class MaximumPlasoParserJson:
         :return: None
         """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            if event.get("parser") == "winreg/bagmru/shell_items":
+                shell_item_path = event.get("shell_item_path", "-")
+                name = event.get("name", "-")
 
-        if event.get("parser") == "winreg/bagmru/shell_items":
-            shell_item_path = event.get("shell_item_path", "-")
-            name = event.get("name", "-")
+                if self.output_type in ["csv", "all"]:
+                    res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  name, self.separator,
+                                                  shell_item_path)
+                    self.mru_res_file_csv.write(res)
+                    self.mru_res_file_csv.write('\n')
 
-            if self.output_type in ["csv", "all"]:
-                res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              name, self.separator,
-                                              shell_item_path)
-                self.mru_res_file_csv.write(res)
-                self.mru_res_file_csv.write('\n')
+                if self.output_type in ["json", "all"]:
+                    res = {
+                        "caseName": self.case_name,
+                        "workstation_name": self.machine_name,
+                        "timestamp": "{}T{}".format(ts_date, ts_time),
+                        "name": name,
+                        "shell_item_path": shell_item_path,
+                        "Artefact": "MRU"
+                    }
+                    json.dump(res, self.mru_res_file_json)
+                    self.mru_res_file_json.write('\n')
 
-            if self.output_type in ["json", "all"]:
-                res = {
-                    "caseName": self.case_name,
-                    "workstation_name": self.machine_name,
-                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                    "name": name,
-                    "shell_item_path": shell_item_path,
-                    "Artefact": "MRU"
-                }
-                json.dump(res, self.mru_res_file_json)
-                self.mru_res_file_json.write('\n')
+            elif event.get("entries"):
+                entries = event.get("entries")
+                if type(entries) == list:
+                    for entrie_item in entries:
+                        splited_entrie = entrie_item.split("Index:")
+                        for entrie in splited_entrie:
+                            header = r'( \d{1,9} \[MRU Value \d{1,9}\]: Shell item path:)|(<UNKNOWN: .*?>)|((\d|[a-z]){1,9} \[MRU Value .{1,9}\]:)'
+                            cleaned = re.sub(header, '', entrie).strip()
+                            if cleaned:
+                                if self.output_type in ["csv", "all"]:
+                                    res = "{}{}{}{}-{}{}".format(ts_date, self.separator,
+                                                                 ts_time, self.separator,
+                                                                 self.separator,
+                                                                 cleaned)
+                                    self.mru_res_file_csv.write(res)
+                                    self.mru_res_file_csv.write('\n')
 
-        elif event.get("entries"):
-            entries = event.get("entries")
-            l_entries = entries.split("Index:")
-            for entrie in l_entries:
-                header = r'( \d{1,9} \[MRU Value \d{1,9}\]: Shell item path:)|(<UNKNOWN: .*?>)|((\d|[a-z]){1,9} \[MRU Value .{1,9}\]:)'
-                cleaned = re.sub(header, '', entrie).strip()
-                if cleaned:
-                    if self.output_type in ["csv", "all"]:
-                        res = "{}{}{}{}-{}{}".format(ts_date, self.separator,
-                                                     ts_time, self.separator,
-                                                     self.separator,
-                                                     cleaned)
-                        self.mru_res_file_csv.write(res)
-                        self.mru_res_file_csv.write('\n')
+                                if self.output_type in ["json", "all"]:
+                                    res = {
+                                        "caseName": self.case_name,
+                                        "workstation_name": self.machine_name,
+                                        "timestamp": "{}T{}".format(ts_date, ts_time),
+                                        "mru_entrie": cleaned,
+                                        "Artefact": "MRU"
+                                    }
+                                    json.dump(res, self.mru_res_file_json)
+                                    self.mru_res_file_json.write('\n')
+                else:
+                    splited_entrie = entries.split("Index:")
+                    for entrie in splited_entrie:
+                        header = r'( \d{1,9} \[MRU Value \d{1,9}\]: Shell item path:)|(<UNKNOWN: .*?>)|((\d|[a-z]){1,9} \[MRU Value .{1,9}\]:)'
+                        cleaned = re.sub(header, '', entrie).strip()
+                        if cleaned:
+                            if self.output_type in ["csv", "all"]:
+                                res = "{}{}{}{}-{}{}".format(ts_date, self.separator,
+                                                             ts_time, self.separator,
+                                                             self.separator,
+                                                             cleaned)
+                                self.mru_res_file_csv.write(res)
+                                self.mru_res_file_csv.write('\n')
 
-                    if self.output_type in ["json", "all"]:
-                        res = {
-                            "caseName": self.case_name,
-                            "workstation_name": self.machine_name,
-                            "timestamp": "{}T{}".format(ts_date, ts_time),
-                            "mru_entrie": cleaned,
-                            "Artefact": "MRU"
-                        }
-                        json.dump(res, self.mru_res_file_json)
-                        self.mru_res_file_json.write('\n')
+                            if self.output_type in ["json", "all"]:
+                                res = {
+                                    "caseName": self.case_name,
+                                    "workstation_name": self.machine_name,
+                                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                                    "mru_entrie": cleaned,
+                                    "Artefact": "MRU"
+                                }
+                                json.dump(res, self.mru_res_file_json)
+                                self.mru_res_file_json.write('\n')
+        except:
+            print("Error parsing MRU entries")
+            print(traceback.format_exc())
+
 
     def parse_run(self, event):
         """
@@ -2438,7 +2468,7 @@ class MaximumPlasoParserJson:
                 "Artefact": "EVTX_WINDOWS_DEFENDER"
             }
             json.dump(res, self.windefender_res_file_json)
-        self.windefender_res_file_json.write('\n')
+            self.windefender_res_file_json.write('\n')
 
     def parse_windef_detection_from_xml_legacy(self, event):
         """
