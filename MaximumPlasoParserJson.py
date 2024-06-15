@@ -56,11 +56,12 @@ class MaximumPlasoParserJson:
             self.config = self.read_json_config(config_file)
         else:
             self.config = {
-                "4624": 1,
-                "4625": 1,
-                "4672": 1,
-                "4648": 1,
-                "4688": 1,
+                "user_logon_id4624": 1,
+                "user_failed_logon_id4625": 1,
+                "user_special_logon_id4672": 1,
+                "user_explicit_logon_id4648": 1,
+                "new_proc_file_id4688": 1,
+                "windows_Start_Stop": 1,
                 "task_scheduler": 1,
                 "remote_rdp": 1,
                 "local_rdp": 1,
@@ -169,6 +170,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_mft = ["Date", "Time", "source", "fileName", "action", "fileType"]
         self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
                                          "Path", "Action"]
+        self.l_csv_header_start_stop = ["Date", "Time", "message"]
 
         self.logon_res_file_csv = ""
         self.logon_failed_file_csv = ""
@@ -200,6 +202,8 @@ class MaximumPlasoParserJson:
 
         self.windefender_res_file_csv = ""
 
+        self.windows_start_stop_res_file_csv = ""
+
         self.logon_res_file_json = ""
         self.logon_failed_file_json = ""
         self.logon_spe_file_json = ""
@@ -229,6 +233,8 @@ class MaximumPlasoParserJson:
         self.mft_res_file_json = ""
 
         self.windefender_res_file_json = ""
+
+        self.windows_start_stop_res_file_json = ""
 
         self.initialise_results_files()
 
@@ -305,24 +311,28 @@ class MaximumPlasoParserJson:
         :return: None
         """
 
-        if self.config.get("4624", 0):
-            self.logon_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_4624, "4624")
+        if self.config.get("user_logon_id4624", 0):
+            self.logon_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_4624, "user_logon_id4624")
 
-        if self.config.get("4625", 0):
-            self.logon_failed_file_csv = self.initialise_result_file_csv(self.l_csv_header_4625, "4625")
-
-        if self.config.get("4672", 0):
-            self.logon_spe_file_csv = self.initialise_result_file_csv(self.l_csv_header_4672, "4672")
-
-        if self.config.get("4648", 0):
-            self.logon_exp_file_csv = self.initialise_result_file_csv(self.l_csv_header_4648, "4648")
-
-        if self.config.get("4688", 0):
-            self.new_proc_file_csv = self.initialise_result_file_csv(self.l_csv_header_4688, "4688")
-
+        if self.config.get("user_failed_logon_id4625", 0):
+            self.logon_failed_file_csv = self.initialise_result_file_csv(self.l_csv_header_4625,
+                                                                         "user_failed_logon_id4625")
+        if self.config.get("user_special_logon_id4672", 0):
+            self.logon_spe_file_csv = self.initialise_result_file_csv(self.l_csv_header_4672,
+                                                                      "user_special_logon_id4672")
+        if self.config.get("user_explicit_logon_id4648", 0):
+            self.logon_exp_file_csv = self.initialise_result_file_csv(self.l_csv_header_4648,
+                                                                      "user_explicit_logon_id4648")
+        if self.config.get("new_proc_file_id4688", 0):
+            self.new_proc_file_csv = self.initialise_result_file_csv(self.l_csv_header_4688,
+                                                                     "new_proc_file_id4688")
+        if self.config.get("windows_Start_Stop", 0):
+            self.windows_start_stop_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_start_stop,
+                                                                                   "windows_start_stop")
         if self.config.get("taskScheduler", 0):
             self.task_scheduler_file_csv = self.initialise_result_file_csv(self.l_csv_header_tscheduler,
                                                                            "task_scheduler")
+
         if self.config.get("remote_rdp", 0):
             self.remote_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_remot_rdp,
                                                                        "remote_rdp")
@@ -330,11 +340,12 @@ class MaximumPlasoParserJson:
         if self.config.get("local_rdp", 0):
             self.local_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_local_rdp,
                                                                       "local_rdp")
+
         if self.config.get("bits", 0):
             self.bits_file_csv = self.initialise_result_file_csv(self.l_csv_header_bits, "bits")
 
-        if self.config.get("service", 0):
-            self.service_file_csv = self.initialise_result_file_csv(self.l_csv_header_7045, "7045")
+        if self.config.get("new_service_id7045", 0):
+            self.service_file_csv = self.initialise_result_file_csv(self.l_csv_header_7045, "new_service_id7045")
 
         if self.config.get("powershell", 0):
             self.powershell_file_csv = self.initialise_result_file_csv(self.l_csv_header_powershell,
@@ -358,6 +369,7 @@ class MaximumPlasoParserJson:
         if self.config.get("app_compat"):
             self.app_compat_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_appcompat,
                                                                            "app_compat_cache")
+
         if self.config.get("sam"):
             self.sam_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_sam, "sam")
 
@@ -402,28 +414,33 @@ class MaximumPlasoParserJson:
         :return: None
         """
 
-        if self.config.get("4624", 0):
-            self.logon_res_file_json = self.initialise_result_file_json("4624")
+        if self.config.get("user_logon_id4624", 0):
+            self.logon_res_file_json = self.initialise_result_file_json("user_logon_id4624")
 
-        if self.config.get("4625", 0):
-            self.logon_failed_file_json = self.initialise_result_file_json("4625")
+        if self.config.get("user_failed_logon_id4625", 0):
+            self.logon_failed_file_json = self.initialise_result_file_json("user_failed_logon_id4625")
 
-        if self.config.get("4672", 0):
-            self.logon_spe_file_json = self.initialise_result_file_json("4672")
+        if self.config.get("user_special_logon_id4672", 0):
+            self.logon_spe_file_json = self.initialise_result_file_json("user_special_logon_id4672")
 
-        if self.config.get("4648", 0):
-            self.logon_exp_file_json = self.initialise_result_file_json("4648")
+        if self.config.get("user_explicit_logon_id4648", 0):
+            self.logon_exp_file_json = self.initialise_result_file_json("user_explicit_logon_id4648")
 
-        if self.config.get("4688", 0):
-            self.new_proc_file_json = self.initialise_result_file_json("4688")
+        if self.config.get("new_proc_file_id4688", 0):
+            self.new_proc_file_json = self.initialise_result_file_json("new_proc_file_id4688")
+
+        if self.config.get("windows_Start_Stop", 0):
+            self.windows_start_stop_res_file_json = self.initialise_result_file_json("windows_start_stop")
 
         if self.config.get("taskScheduler", 0):
             self.task_scheduler_file_json = self.initialise_result_file_json("task_scheduler")
+
         if self.config.get("remote_rdp", 0):
             self.remote_rdp_file_json = self.initialise_result_file_json("remote_rdp")
 
         if self.config.get("local_rdp", 0):
             self.local_rdp_file_json = self.initialise_result_file_json("local_rdp")
+
         if self.config.get("bits", 0):
             self.bits_file_json = self.initialise_result_file_json("bits")
 
@@ -432,6 +449,7 @@ class MaximumPlasoParserJson:
 
         if self.config.get("powershell", 0):
             self.powershell_file_json = self.initialise_result_file_json("powershell")
+
         if self.config.get("powershell_script", 0):
             self.powershell_script_file_json = self.initialise_result_file_json("powershell_script")
 
@@ -593,6 +611,10 @@ class MaximumPlasoParserJson:
             self.logon_failed_file_csv.close()
         if self.logon_spe_file_csv:
             self.logon_spe_file_csv.close()
+        if self.logon_exp_file_csv:
+            self.logon_exp_file_csv.close()
+        if self.windows_start_stop_res_file_csv:
+            self.windows_start_stop_res_file_csv.close()
         if self.task_scheduler_file_csv:
             self.task_scheduler_file_csv.close()
         if self.remote_rdp_file_csv:
@@ -647,6 +669,10 @@ class MaximumPlasoParserJson:
             self.logon_failed_file_json.close()
         if self.logon_spe_file_json:
             self.logon_spe_file_json.close()
+        if self.logon_exp_file_json:
+            self.logon_exp_file_json.close()
+        if self.windows_start_stop_res_file_json:
+            self.windows_start_stop_res_file_json.close()
         if self.task_scheduler_file_json:
             self.task_scheduler_file_json.close()
         if self.remote_rdp_file_json:
@@ -1124,6 +1150,10 @@ class MaximumPlasoParserJson:
         if event_code == 4688:
             if self.new_proc_file_csv or self.new_proc_file_json:
                 self.parse_new_proc_from_xml(event)
+
+        if event_code == 4608 or event_code == 4609:
+            if self.windows_start_stop_res_file_csv or self.windows_start_stop_res_file_json:
+                self.parse_windows_startup_shutdown(event)
 
     def parse_logon_from_xml(self, event):
         """
@@ -2595,6 +2625,38 @@ class MaximumPlasoParserJson:
             json.dump(res, self.windefender_res_file_json)
             self.windefender_res_file_json.write('\n')
 
+    def parse_windows_startup_shutdown(self, event):
+        """
+        Function to parse windefender detection log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        event_code = event.get("event_identifier")
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if event_code == 4608:
+            msg = "WINDOWS STARTUP"
+        elif event_code == 4609:
+            msg = "WINDOWS SHUTDOWN"
+        else:
+            msg = "-"
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, msg)
+            self.windows_start_stop_res_file_csv.write(res)
+            self.windows_start_stop_res_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "action": msg,
+                "Artefact": "EVTX_SECURITY"
+            }
+            json.dump(res, self.windows_start_stop_res_file_json)
+            self.windows_start_stop_res_file_json.write('\n')
+
 
 def parse_args():
     """
@@ -2701,5 +2763,8 @@ This event is generated whenever the security log is cleared. It is logged on do
  	4614	A notification package has been loaded by the Security Account Manager.
 This event is generated when a user attempts to change their password. It is logged on domain controllers and member computers. 
 
+
+Send to ELK
+jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "http://localhost:9200/_bulk?pretty" -H "Content-Type: application/json" --data-binary @-
 
 """
