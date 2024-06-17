@@ -133,15 +133,15 @@ class MaximumPlasoParserJson:
         }
 
         self.l_csv_header_4624 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port"]
         self.l_csv_header_4625 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port"]
         self.l_csv_header_4672 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port"]
         self.l_csv_header_4648 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port", "workstation_name"]
-        self.l_csv_header_4688 = ["Date", "Time", "event_code", "new_process_name", "command_line",
-                                  "parent_process_name", "subject_user_name", "target_user_name", "workstation_name"]
+                                  "target_user_name", "ip_address", "ip_port"]
+        self.l_csv_header_4688 = ["Date", "Time", "event_code", "subject_user_name", "target_user_name",
+                                  "parent_process_name", "new_process_name", "command_line"]
         self.l_csv_header_tscheduler = ["Date", "Time", "event_code", "name", "task_name", "instance_id",
                                         "action_name", "result_code", "user_name", "user_context"]
         self.l_csv_header_remot_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr"]
@@ -1173,7 +1173,6 @@ class MaximumPlasoParserJson:
         ip_address = "-"
         ip_port = "-"
         logon_type = "-"
-
         for data in event_data:
             if data.get("@Name", "") == "SubjectUserName":
                 subject_user_name = data.get("#text", "-")
@@ -1425,9 +1424,9 @@ class MaximumPlasoParserJson:
                                                           event_code, self.separator,
                                                           subject_user_name, self.separator,
                                                           target_user_name, self.separator,
-                                                          cmd_line, self.separator,
+                                                          parent_proc_name,self.separator,
                                                           new_proc_name, self.separator,
-                                                          parent_proc_name)
+                                                          cmd_line)
             self.new_proc_file_csv.write(res)
             self.new_proc_file_csv.write('\n')
 
@@ -1439,9 +1438,9 @@ class MaximumPlasoParserJson:
                 "eventCode": event_code,
                 "subject_user_name": subject_user_name,
                 "target_user_name": target_user_name,
-                "cmd_line": cmd_line,
                 "new_process_name": new_proc_name,
                 "parent_process_name": parent_proc_name,
+                "cmd_line": cmd_line,
                 "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.new_proc_file_json)
@@ -1942,7 +1941,7 @@ class MaximumPlasoParserJson:
     def parse_mru(self, event):
         """
         Function to parse mru artefact.
-        It will parse and write results to the appropriate result file.
+        It will parse and write results to the appr)à   opriate result file.
         :param event: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
@@ -2026,7 +2025,6 @@ class MaximumPlasoParserJson:
         except:
             print("Error parsing MRU entries")
             print(traceback.format_exc())
-
 
     def parse_run(self, event):
         """
@@ -2289,7 +2287,7 @@ class MaximumPlasoParserJson:
                 "workstation_name": self.machine_name,
                 "message": msg,
                 "file_name": file_name,
-                "Artefact": "NTFS-USN"
+                "Artefact": "NTFS_USN"
 
             }
             json.dump(res, self.mft_res_file_json)
@@ -2317,7 +2315,7 @@ class MaximumPlasoParserJson:
                 "action": action,
                 "file_type": file_type,
                 "path": file_name_path,
-                "Artefact": "NTFS_FILSTAT"
+                "Artefact": "NTFS_FILESTAT"
             }
             json.dump(res, self.mft_res_file_json)
             self.mft_res_file_json.write('\n')
