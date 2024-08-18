@@ -134,6 +134,7 @@ The artefacts parsed by MPP are :
 ├── srum
 ├── user_assist
 ├── windefender
+├── windows Sart and stop
 └── wmi
 ```
 

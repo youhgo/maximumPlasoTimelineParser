@@ -12,12 +12,10 @@ import sys
 
 # TODO : Parsing
 # TODO : Parse Firewall Detection
-# TODO : Parse Shutdown + restart
 # TODO : Parse Log erasure
 
 # TODO : General
 # TODO : Parse Task Scheduler event 4698 + 4702
-# TODO : ADD Event id description
 
 
 class MaximumPlasoParserJson:
@@ -344,7 +342,7 @@ class MaximumPlasoParserJson:
         if self.config.get("bits", 0):
             self.bits_file_csv = self.initialise_result_file_csv(self.l_csv_header_bits, "bits")
 
-        if self.config.get("new_service_id7045", 0):
+        if self.config.get("service", 0):
             self.service_file_csv = self.initialise_result_file_csv(self.l_csv_header_7045, "new_service_id7045")
 
         if self.config.get("powershell", 0):
