@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import json
 import os
+import pathlib
 import traceback
 import argparse
 import re
@@ -338,7 +339,6 @@ class MaximumPlasoParserJson:
         if self.config.get("local_rdp", 0):
             self.local_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_local_rdp,
                                                                       "local_rdp")
-
         if self.config.get("bits", 0):
             self.bits_file_csv = self.initialise_result_file_csv(self.l_csv_header_bits, "bits")
 
@@ -723,11 +723,17 @@ class MaximumPlasoParserJson:
         try:
             with open(path_to_tl) as timeline:
                 for line in timeline:
-                    d_line = json.loads(line)
+                    try:
+                        d_line = json.loads(line)
+                    except:
+                        print("coulnd load json line, skiping line")
+                        print(traceback.format_exc())
+                        continue
                     type_artefact = self.identify_type_artefact_by_parser(d_line)
                     if type_artefact:
                         self.assign_parser(d_line, type_artefact)
             self.close_files()
+            self.clean_duplicates(self.work_dir)
 
         except Exception as ex:
             print("error with parsing")
@@ -1422,7 +1428,7 @@ class MaximumPlasoParserJson:
                                                           event_code, self.separator,
                                                           subject_user_name, self.separator,
                                                           target_user_name, self.separator,
-                                                          parent_proc_name,self.separator,
+                                                          parent_proc_name, self.separator,
                                                           new_proc_name, self.separator,
                                                           cmd_line)
             self.new_proc_file_csv.write(res)
@@ -1612,7 +1618,7 @@ class MaximumPlasoParserJson:
         result_code = event_data.get("ResultCode", "-")
         user_name = event_data.get("UserName", "-")
         user_context = event_data.get("UserContext", "-")
-        
+
         '''
 
     #  ----------------------------------------  PowerShell ---------------------------------------------
@@ -2405,14 +2411,15 @@ class MaximumPlasoParserJson:
                 path = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          threat_name, self.separator,
-                                                          severity, self.separator,
-                                                          detection_user, self.separator,
-                                                          process_name, self.separator,
-                                                          action)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                              ts_time, self.separator,
+                                                              event_code, self.separator,
+                                                              threat_name, self.separator,
+                                                              severity, self.separator,
+                                                              detection_user, self.separator,
+                                                              process_name, self.separator,
+                                                              path, self.separator,
+                                                              action)
             self.windefender_res_file_csv.write(res)
             self.windefender_res_file_csv.write('\n')
 
@@ -2440,7 +2447,8 @@ class MaximumPlasoParserJson:
         :param event: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
-        event_code = "1117 - Action"
+        evt_code = str(event.get("event_identifier"))
+        event_code = "{} - Action".format(evt_code)
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
@@ -2652,6 +2660,41 @@ class MaximumPlasoParserJson:
             }
             json.dump(res, self.windows_start_stop_res_file_json)
             self.windows_start_stop_res_file_json.write('\n')
+
+    def list_files_recursive(self, folder_path):
+        l_file = []
+        path_folder = pathlib.Path(folder_path)
+        for item in path_folder.rglob('*'):
+            if item.is_file():
+                l_file.append(item)
+        return l_file
+
+    def clean_duplicates(self, dir_to_clean):
+
+        """
+        To clean duplicates line in file
+        :return:
+        """
+        try:
+            l_file = self.list_files_recursive(dir_to_clean)
+            for file in l_file:
+                self.clean_duplicate_in_file(file)
+        except:
+            print(traceback.format_exc())
+
+    def clean_duplicate_in_file(self, file):
+
+        seen_lines = set()
+        l_temp = []
+
+        with open(file, 'r') as f:
+            for line in f:
+                if line not in seen_lines:
+                    seen_lines.add(line)
+                    l_temp.append(line)
+
+        with open(file, 'w') as f:
+            f.writelines(l_temp)
 
 
 def parse_args():
