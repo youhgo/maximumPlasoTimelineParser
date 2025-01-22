@@ -155,7 +155,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_script_powershell = ["Date", "Time", "event_code", "cmd"]
         self.l_csv_header_wmi = ["Date", "Time", "user", "nameSpace", "Query"]
         self.l_csv_header_app_exp = ["Date", "Time", "ExePath", "FixName", "Query"]
-        self.l_csv_header_amcache = ["Date", "Time", "Name", "id", "FullPath", "Hash"]
+        self.l_csv_header_amcache = ["Date", "Time", "Name", "FullPath", "id", "Hash"]
         self.l_csv_header_appcompat = ["Date", "Time", "Name", "FullPath", "Hash"]
         self.l_csv_header_sam = ["Date", "Time", "username", "login_count"]
         self.l_csv_header_usserassit = ["Date", "Time", "valueName", "appFocus", "appDuration"]
@@ -1820,9 +1820,10 @@ class MaximumPlasoParserJson:
 
             if self.output_type in ["csv", "all"]:
                 # res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, name, self.separator, identifier)
-                res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
                                                   ts_time, self.separator,
                                                   name, self.separator,
+                                                  full_path, self.separator,
                                                   identifier, self.separator,
                                                   sha256_hash)
                 self.amcache_res_file_csv.write(res)
@@ -1834,6 +1835,7 @@ class MaximumPlasoParserJson:
                     "workstation_name": self.machine_name,
                     "timestamp": "{}T{}".format(ts_date, ts_time),
                     "name": name,
+                    "fullPath": full_path,
                     "identifier": identifier,
                     "hash": sha256_hash,
                     "Artefact": "AMCACHE"

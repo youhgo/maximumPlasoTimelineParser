@@ -2,10 +2,12 @@
 
 MPP or MaximumPlasoParser is a python script that will parse a [plaso - Log2Timeline](https://github.com/log2timeline/plaso)  json timeline file.
 
+MPP is fully integrated in [DOPP](https://youhgo.github.io/DOPP-EN/), an all-in-one solution to fully parse all Windows artefacts gathered by any collection tool (DFIR-ORC prefered).
+
 The goal is to regroup artefacts by categories in some easily readable and straight forward files.
 
 MPP : 
-* Regroup Artefacts by categories;
+* Regroup Artefacts by categories in separates files;
 * Provide Human Readable output;
 * Provide Json output (for SIEM ingestion);
 * Is Fast (Avg time to parse a 1.4 Go Timeline : 90 sec);
@@ -134,7 +136,4 @@ The artefacts parsed by MPP are :
 ## Disclamer
 
 I'm not a professional dev and i'm doing this project on my free time.
-
-There might be some issues on parsing Security logs. SomeTimes, multiple users are referenced on the log and for now
-the script is taking the 1st One witch can be not relevant. I'm working on it.
 
