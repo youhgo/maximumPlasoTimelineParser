@@ -10,6 +10,8 @@ import xmltodict
 import time
 import sys
 
+from plaso.cli.logger import exception
+
 
 # TODO : Parsing
 # TODO : Parse Firewall Detection
@@ -81,7 +83,8 @@ class MaximumPlasoParserJson:
                 "run": 1,
                 "lnk": 1,
                 "mft": 1,
-                "windefender": 1
+                "windefender": 1,
+                "timeline": 1
             }
 
         self.d_regex_type_artefact = {
@@ -131,6 +134,7 @@ class MaximumPlasoParserJson:
             "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)')
         }
 
+        self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
         self.l_csv_header_4624 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
                                   "target_user_name", "ip_address", "ip_port"]
         self.l_csv_header_4625 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
@@ -171,6 +175,7 @@ class MaximumPlasoParserJson:
                                          "Path", "Action"]
         self.l_csv_header_start_stop = ["Date", "Time", "message"]
 
+        self.timeline_file_csv = ""
         self.logon_res_file_csv = ""
         self.logon_failed_file_csv = ""
         self.logon_spe_file_csv = ""
@@ -203,6 +208,7 @@ class MaximumPlasoParserJson:
 
         self.windows_start_stop_res_file_csv = ""
 
+        self.timeline_file_json = ""
         self.logon_res_file_json = ""
         self.logon_failed_file_json = ""
         self.logon_spe_file_json = ""
@@ -269,7 +275,7 @@ class MaximumPlasoParserJson:
         (str) date in format %Y-%m-%d
         (str) time in format %H:%M:%S
         """
-        dt = datetime.fromtimestamp(epoch_time / 1000000).strftime('%Y-%m-%dT%H:%M:%S')
+        dt = datetime.fromtimestamp(epoch_time / 1000000).strftime('%Y-%m-%dT%H:%M:%S.%f')
         l_dt = dt.split("T")
         return l_dt[0], l_dt[1]
 
@@ -310,47 +316,48 @@ class MaximumPlasoParserJson:
         :return: None
         """
 
+
         if self.config.get("user_logon_id4624", 0):
-            self.logon_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_4624, "user_logon_id4624")
+            self.logon_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_4624, "4624usrLogon")
 
         if self.config.get("user_failed_logon_id4625", 0):
             self.logon_failed_file_csv = self.initialise_result_file_csv(self.l_csv_header_4625,
-                                                                         "user_failed_logon_id4625")
+                                                                         "4625usrFailLogon")
         if self.config.get("user_special_logon_id4672", 0):
             self.logon_spe_file_csv = self.initialise_result_file_csv(self.l_csv_header_4672,
-                                                                      "user_special_logon_id4672")
+                                                                      "4672usrSpeLogon")
         if self.config.get("user_explicit_logon_id4648", 0):
             self.logon_exp_file_csv = self.initialise_result_file_csv(self.l_csv_header_4648,
-                                                                      "user_explicit_logon_id4648")
+                                                                      "4648usrExpLogon")
         if self.config.get("new_proc_file_id4688", 0):
             self.new_proc_file_csv = self.initialise_result_file_csv(self.l_csv_header_4688,
-                                                                     "new_proc_file_id4688")
+                                                                     "4688newProc")
         if self.config.get("windows_Start_Stop", 0):
             self.windows_start_stop_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_start_stop,
-                                                                                   "windows_start_stop")
+                                                                                   "winStartStop")
         if self.config.get("taskScheduler", 0):
             self.task_scheduler_file_csv = self.initialise_result_file_csv(self.l_csv_header_tscheduler,
-                                                                           "task_scheduler")
+                                                                           "taskScheduler")
 
         if self.config.get("remote_rdp", 0):
             self.remote_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_remot_rdp,
-                                                                       "remote_rdp")
+                                                                       "rdpRemote")
 
         if self.config.get("local_rdp", 0):
             self.local_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_local_rdp,
-                                                                      "local_rdp")
+                                                                      "rdpLocal")
         if self.config.get("bits", 0):
             self.bits_file_csv = self.initialise_result_file_csv(self.l_csv_header_bits, "bits")
 
         if self.config.get("service", 0):
-            self.service_file_csv = self.initialise_result_file_csv(self.l_csv_header_7045, "new_service_id7045")
+            self.service_file_csv = self.initialise_result_file_csv(self.l_csv_header_7045, "7045newService")
 
         if self.config.get("powershell", 0):
             self.powershell_file_csv = self.initialise_result_file_csv(self.l_csv_header_powershell,
                                                                        "powershell")
         if self.config.get("powershell_script", 0):
             self.powershell_script_file_csv = self.initialise_result_file_csv(self.l_csv_header_script_powershell,
-                                                                              "powershell_script")
+                                                                              "powershellScript")
 
         if self.config.get("wmi", 0):
             self.wmi_file_csv = self.initialise_result_file_csv(self.l_csv_header_wmi, "wmi")
@@ -359,20 +366,20 @@ class MaximumPlasoParserJson:
 
         if self.config.get("app_exp"):
             self.app_exp_file_csv = self.initialise_result_file_csv(self.l_csv_header_app_exp,
-                                                                    "application_experience")
+                                                                    "applicationExperience")
 
         if self.config.get("amcache"):
             self.amcache_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_amcache, "amcache")
 
         if self.config.get("app_compat"):
             self.app_compat_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_appcompat,
-                                                                           "app_compat_cache")
+                                                                           "shimcache")
 
         if self.config.get("sam"):
             self.sam_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_sam, "sam")
 
         if self.config.get("user_assist"):
-            self.user_assist_file_csv = self.initialise_result_file_csv(self.l_csv_header_usserassit, "user_assist")
+            self.user_assist_file_csv = self.initialise_result_file_csv(self.l_csv_header_usserassit, "usrAssist")
 
         if self.config.get("mru"):
             self.mru_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_mru, "mru")
@@ -381,15 +388,15 @@ class MaximumPlasoParserJson:
             self.srum_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_srum, "srum")
 
         if self.config.get("run"):
-            self.run_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_run, "run_key")
+            self.run_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_run, "runKey")
 
         # ----------------------------- Other ------------------------------------------------
 
         if self.config.get("ff_history"):
-            self.ff_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ff_history, "ff_history")
+            self.ff_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ff_history, "ffHistory")
 
         if self.config.get("ie_history"):
-            self.ie_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ie_history, "ie_history")
+            self.ie_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ie_history, "ieHistory")
 
         if self.config.get("prefetch"):
             self.prefetch_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_prefetch, "prefetch")
@@ -563,6 +570,7 @@ class MaximumPlasoParserJson:
         Function to close all opened stream
         :return:
         """
+        self.timeline_file_csv.close()
         self.logon_res_file.close()
         self.logon_failed_file.close()
         self.logon_spe_file.close()
@@ -603,6 +611,7 @@ class MaximumPlasoParserJson:
         Function to close all opened stream
         :return:
         """
+
         if self.logon_res_file_csv:
             self.logon_res_file_csv.close()
         if self.logon_failed_file_csv:
@@ -726,14 +735,18 @@ class MaximumPlasoParserJson:
                     try:
                         d_line = json.loads(line)
                     except:
-                        print("coulnd load json line, skiping line")
+                        print("could not load json line, skiping line")
                         print(traceback.format_exc())
                         continue
                     type_artefact = self.identify_type_artefact_by_parser(d_line)
                     if type_artefact:
                         self.assign_parser(d_line, type_artefact)
+
             self.close_files()
             self.clean_duplicates(self.work_dir)
+            self.create_timeline()
+
+
 
         except Exception as ex:
             print("error with parsing")
@@ -2663,10 +2676,10 @@ class MaximumPlasoParserJson:
             json.dump(res, self.windows_start_stop_res_file_json)
             self.windows_start_stop_res_file_json.write('\n')
 
-    def list_files_recursive(self, folder_path):
+    def list_files_recursive(self, folder_path, glob_pattern):
         l_file = []
         path_folder = pathlib.Path(folder_path)
-        for item in path_folder.rglob('*'):
+        for item in path_folder.rglob(glob_pattern):
             if item.is_file():
                 l_file.append(item)
         return l_file
@@ -2678,7 +2691,7 @@ class MaximumPlasoParserJson:
         :return:
         """
         try:
-            l_file = self.list_files_recursive(dir_to_clean)
+            l_file = self.list_files_recursive(dir_to_clean, "*")
             for file in l_file:
                 self.clean_duplicate_in_file(file)
         except:
@@ -2698,6 +2711,37 @@ class MaximumPlasoParserJson:
         with open(file, 'w') as f:
             f.writelines(l_temp)
 
+    def create_timeline(self):
+
+        if self.config.get("timeline", 0):
+            self.timeline_file_csv = self.initialise_result_file_csv(self.l_csv_header_timeline, "timeline")
+        timeline = []
+        for file in self.list_files_recursive(self.dir_out, "*.csv"):
+            try:
+                with open(file) as f:
+                    next(f)
+                    for line in f:
+                        f_line = self.format_line(line, file.stem)
+                        if f_line:
+                            timeline.append(f_line)
+            except StopIteration:
+                print("stop iteration in file {}, skipping".format(str(file)))
+            except:
+                print(traceback.format_exc())
+
+
+        sorted_timeline = sorted(timeline)
+        for entry in sorted_timeline:
+            self.timeline_file_csv.write(entry)
+        self.timeline_file_csv.close()
+
+    def format_line(self, line, source):
+        try:
+            l_line = line.split("|")
+            l_line.insert(2, source)
+            return "|".join(l_line)
+        except:
+            print(traceback.format_exc())
 
 def parse_args():
     """
