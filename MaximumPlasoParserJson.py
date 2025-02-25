@@ -744,9 +744,8 @@ class MaximumPlasoParserJson:
 
             self.close_files()
             self.clean_duplicates(self.work_dir)
-            self.create_timeline()
-
-
+            if self.config.get("timeline", 0):
+                self.create_timeline()
 
         except Exception as ex:
             print("error with parsing")
@@ -1672,7 +1671,7 @@ class MaximumPlasoParserJson:
                 path_to_script = data.get("#text", "-")
 
             elif data.get("@Name", "") == "ScriptBlockText":
-                script_block_text = data.get("#text", "-")
+                script_block_text = str(data.get("#text", "-")).replace("\n", "")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -2712,11 +2711,8 @@ class MaximumPlasoParserJson:
             f.writelines(l_temp)
 
     def create_timeline(self):
-
-        if self.config.get("timeline", 0):
-            self.timeline_file_csv = self.initialise_result_file_csv(self.l_csv_header_timeline, "timeline")
         timeline = []
-        for file in self.list_files_recursive(self.dir_out, "*.csv"):
+        for file in self.list_files_recursive(self.work_dir, "*.csv"):
             try:
                 with open(file) as f:
                     next(f)
@@ -2729,7 +2725,7 @@ class MaximumPlasoParserJson:
             except:
                 print(traceback.format_exc())
 
-
+        self.timeline_file_csv = self.initialise_result_file_csv(self.l_csv_header_timeline, "timeline")
         sorted_timeline = sorted(timeline)
         for entry in sorted_timeline:
             self.timeline_file_csv.write(entry)
