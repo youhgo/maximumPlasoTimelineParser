@@ -170,7 +170,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_ie_history = ["Date", "Time", "url", "visit_count", "visit_type", "isType", "from_visit"]
         self.l_csv_header_prefetch = ["Date", "Time", "name", "path", "nbExec", "sha256"]
         self.l_csv_header_lnk = ["Date", "Time", "description", "working_dir"]
-        self.l_csv_header_mft = ["Date", "Time", "source", "fileName", "action", "fileType"]
+        self.l_csv_header_mft = ["Date", "Time", "source","fileType", "action", "fileName"]
         self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
                                          "Path", "Action"]
         self.l_csv_header_start_stop = ["Date", "Time", "message"]
