@@ -10,11 +10,8 @@ import xmltodict
 import time
 import sys
 
-from plaso.cli.logger import exception
-
 
 # TODO : Parsing
-# TODO : Parse Firewall Detection
 # TODO : Parse Log erasure
 
 # TODO : General
@@ -44,13 +41,15 @@ class MaximumPlasoParserJson:
         """
 
         self.dir_out = dir_out
-        self.output_type = output_type
+        self.output_type = output_type.lower()
         self.separator = separator
         self.case_name = case_name
         self.machine_name = machine_name
 
         self.current_date = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         self.work_dir = os.path.join(os.path.abspath(dir_out), "mpp_{}_{}".format(self.machine_name, self.current_date))
+        self.csv_dir = os.path.join(self.work_dir, "csv_results")
+        self.json_dir = os.path.join(self.work_dir, "json_results")
         self.initialise_working_directories()
 
         if config_file:
@@ -137,10 +136,10 @@ class MaximumPlasoParserJson:
         }
 
         self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
-        self.l_csv_header_4624 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port"]
-        self.l_csv_header_4625 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port"]
+        self.l_csv_header_4624 = ["Date", "Time", "event_code", "subject_user_name",
+                                  "target_user_name", "ip_address", "ip_port", "logon_type"]
+        self.l_csv_header_4625 = ["Date", "Time", "event_code","subject_user_name",
+                                  "target_user_name", "ip_address", "ip_port","logon_type","failure_reason"]
         self.l_csv_header_4672 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
                                   "target_user_name", "ip_address", "ip_port"]
         self.l_csv_header_4648 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
@@ -149,7 +148,7 @@ class MaximumPlasoParserJson:
                                   "parent_process_name", "new_process_name", "command_line"]
         self.l_csv_header_tscheduler = ["Date", "Time", "event_code", "name", "task_name", "instance_id",
                                         "action_name", "result_code", "user_name", "user_context"]
-        self.l_csv_header_remot_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr"]
+        self.l_csv_header_remote_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr"]
         self.l_csv_header_local_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr", "session_id",
                                        "source", "target_session", "reason_n", "reason"]
         self.l_csv_header_bits = ["Date", "Time", "event_code", "id", "job_id", "job_title", "job_owner",
@@ -253,6 +252,11 @@ class MaximumPlasoParserJson:
         try:
             # print("creating {}".format(self.work_dir))
             os.makedirs(self.work_dir, exist_ok=True)
+            if self.output_type == "csv" or self.output_type == "all":
+                os.makedirs(self.csv_dir, exist_ok=True)
+            if self.output_type == "json" or self.output_type == "all":
+                os.makedirs(self.json_dir, exist_ok=True)
+
             print("result directory is located at : {}".format(self.work_dir))
         except:
             sys.stderr.write("\nfailed to initialises directories {}\n".format(traceback.format_exc()))
@@ -289,7 +293,7 @@ class MaximumPlasoParserJson:
         :param extension: (str) the name of the extension of the file
         :return: stream to a file
         """
-        result_file_stream = open(os.path.join(self.work_dir, "{}.{}".format(file_name, extension)), 'a')
+        result_file_stream = open(os.path.join(self.csv_dir, "{}.{}".format(file_name, extension)), 'a')
         result_file_stream.write(self.separator.join(header))
         result_file_stream.write("\n")
         return result_file_stream
@@ -301,7 +305,7 @@ class MaximumPlasoParserJson:
         :param extension: (str) the name of the extension of the file
         :return: stream to a file
         """
-        result_file_stream = open(os.path.join(self.work_dir, "{}.{}".format(file_name, extension)), 'a')
+        result_file_stream = open(os.path.join(self.json_dir, "{}.{}".format(file_name, extension)), 'a')
         return result_file_stream
 
     def initialise_results_files(self):
@@ -342,7 +346,7 @@ class MaximumPlasoParserJson:
                                                                            "taskScheduler")
 
         if self.config.get("remote_rdp", 0):
-            self.remote_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_remot_rdp,
+            self.remote_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_remote_rdp,
                                                                        "rdpRemote")
 
         if self.config.get("local_rdp", 0):
@@ -1258,6 +1262,21 @@ class MaximumPlasoParserJson:
         ip_address = "-"
         ip_port = "-"
         logon_type = "-"
+        reason = "-"
+        d_status = {
+            "0XC000005E": "NoLogServAvailable",
+            "0xC0000064": "BadUserAccount",
+            "0xC000006A": "BadUserNameOrPasswd",
+            "0XC000006D": "BadUserNameOrPasswd",
+            "0xC000006F": "LogonOutSideHours",
+            "0xC0000070": "LogonFromUnauthorizedWordstation",
+            "0xC0000072": "UserLogonDisabledByAdmin",
+            "0XC000015B": "UserGotNotLogonRight",
+            "0XC0000192": "NetLogonWasNotStarted",
+            "0xC0000193": "LogonWExpiredAccount",
+            "0XC0000413": "AccountNotauthorizedOnMachine",
+            "-": "-"
+        }
 
         for data in event_data:
             if data.get("@Name", "") == "SubjectUserName":
@@ -1270,16 +1289,19 @@ class MaximumPlasoParserJson:
                 ip_port = data.get("#text", "-")
             elif data.get("@Name", "") == "LogonType":
                 logon_type = data.get("#text", "-")
+            elif data.get("@Name", "") == "Status":
+                reason = d_status.get(str(data.get("#text", "-")).upper(),"-")
 
         if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
                                                           ts_time, self.separator,
                                                           event_code, self.separator,
                                                           subject_user_name, self.separator,
                                                           target_user_name, self.separator,
                                                           ip_address, self.separator,
                                                           ip_port, self.separator,
-                                                          logon_type)
+                                                          logon_type, self.separator,
+                                                          reason)
             self.logon_failed_file_csv.write(res)
             self.logon_failed_file_csv.write('\n')
         if self.output_type in ["json", "all"]:
@@ -1293,6 +1315,7 @@ class MaximumPlasoParserJson:
                 "ip_address": ip_address,
                 "ip_port": ip_port,
                 "logon_type": logon_type,
+                "failed_reason": reason,
                 "Artefact": "EVTX_SECURITY"
             }
             json.dump(res, self.logon_failed_file_json)
