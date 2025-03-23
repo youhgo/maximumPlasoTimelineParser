@@ -10,6 +10,8 @@ import xmltodict
 import time
 import sys
 
+from systemd.login import machine_names
+
 
 # TODO : Parsing
 # TODO : Parse Log erasure
@@ -28,8 +30,8 @@ class MaximumPlasoParserJson:
        None
     """
 
-    def __init__(self, dir_out, output_type="csv", separator="|", case_name=None, config_file=None,
-                 machine_name="workstation") -> None:
+    def __init__(self, path_to_timeline, dir_out, output_type="csv", separator="|", case_name=None, config_file=None,
+                 machine_name="") -> None:
         """
         Constructor for the MaximumPlasoParser Class
 
@@ -39,12 +41,13 @@ class MaximumPlasoParserJson:
         :param case_name:  (str) name that will be set into json result files (for practical purpose with elk)
         :param config_file: (str) full path to a json file containing a configuration
         """
-
+        self.path_to_timeline = path_to_timeline
         self.dir_out = dir_out
         self.output_type = output_type.lower()
         self.separator = separator
         self.case_name = case_name
-        self.machine_name = machine_name
+        if machine_name:
+            self.machine_name = machine_name
 
         self.current_date = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         self.work_dir = os.path.join(os.path.abspath(dir_out), "mpp_{}_{}".format(self.machine_name, self.current_date))
@@ -243,6 +246,8 @@ class MaximumPlasoParserJson:
         self.windows_start_stop_res_file_json = ""
 
         self.initialise_results_files()
+
+        self.get_machine_information()
 
     def initialise_working_directories(self):
         """
@@ -729,14 +734,14 @@ class MaximumPlasoParserJson:
         if self.mft_res_file_json:
             self.mft_res_file_json.close()
 
-    def parse_timeline(self, path_to_tl):
+    def parse_timeline(self):
         """
         Main function to parse the plaso timeline
         :param path_to_tl: (str) full path to the timeline
         :return: None
         """
         try:
-            with open(path_to_tl) as timeline:
+            with open(self.path_to_timeline) as timeline:
                 for line in timeline:
                     try:
                         d_line = json.loads(line)
@@ -758,8 +763,58 @@ class MaximumPlasoParserJson:
             print("error is {}".format(traceback.format_exc()))
             self.close_files()
 
+    def get_machine_information(self):
+        print("[INFORMATION ] Getting Machine information")
+        if not self.machine_name:
+            self.machine_name = self.get_machine_name()
+        if not self.machine_name:
+            self.machine_name = "machineX"
+
+    def get_machine_name(self):
+        """
+        Main function to parse the plaso timeline
+        :param path_to_tl: (str) full path to the timeline
+        :return: None
+        """
+        try:
+            print("[MACHINE NAME] Getting Machine Name")
+            with open(self.path_to_timeline) as timeline:
+                for line in timeline:
+                    try:
+                        d_line = json.loads(line)
+                        if str(d_line.get("data_type", "-")).lower() == "windows:registry:key_value":
+                            if d_line.get("key_path",
+                                          "") == "HKEY_LOCAL_MACHINE\\System\\ControlSet001\\Control\\ComputerName\\ComputerName":
+                                computer_name = self.get_computer_name(d_line)
+                                if computer_name:
+                                     return computer_name
+                                else:
+                                    continue
+                    except:
+                        print("could not load json line, skipping line")
+                        print(traceback.format_exc())
+                        continue
+
+        except Exception as ex:
+            print("error with parsing")
+            print("error is {}".format(traceback.format_exc()))
+
+    def get_computer_name(self, event):
+        """Extrait le nom de l'ordinateur de la liste de JSONs."""
+
+        if isinstance(event.get("values"), list):
+            for value in event["values"]:
+                if value.get("name") == "ComputerName":
+                    return value.get("data")
+        elif isinstance(event.get("message"), str):
+            message = event["message"]
+            match = re.search(r"ComputerName: \[REG_SZ\] (\w+)", message)
+            if match:
+                return match.group(1)
+        return None
+
+
     #  -------------------------------------------------------------  Logs ---------------------------------------------
-    #  -----------------------------------------------------------------------------------------------------------------
 
     def parse_logs(self, line):
         """
@@ -2805,7 +2860,7 @@ def parse_args():
                                  help="type of the output file format : csv or json or both. Default is csv")
 
     argument_parser.add_argument("-m", "--machine_name", action="store",
-                                 required=False, dest="machine_name", default="machineX",
+                                 required=False, dest="machine_name",
                                  metavar="name of the machine",
                                  help="name of the machine")
 
@@ -2848,9 +2903,9 @@ if __name__ == '__main__':
 
     type_input = check_input(args.timeline)
     if type_input == "json":
-        mp = MaximumPlasoParserJson(args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
+        mp = MaximumPlasoParserJson(args.timeline, args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
                                     args.machine_name)
-        mp.parse_timeline(args.timeline)
+        mp.parse_timeline()
     else:
         print("Timeline is not a valide Json, aboarding")
         exit(1)
@@ -2858,6 +2913,7 @@ if __name__ == '__main__':
     print("Finished in {} secondes".format(time.time() - start_time))
 
 """
+Info
 location": "Microsoft-Windows-Windows Defender%4Operational.evtx
 location": "Microsoft-Windows-Windows Defender%4WHC.evtx
 event id 1116 1117 1015 1013 1014 1012 1011 1010 1009 1008 1007 1006 1005 1004 1003 1002 
