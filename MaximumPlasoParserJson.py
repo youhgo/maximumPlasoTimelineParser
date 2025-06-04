@@ -49,6 +49,7 @@ class MaximumPlasoParserJson:
         if machine_name:
             self.machine_name = machine_name
 
+        self.get_machine_information()
         self.current_date = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         self.work_dir = os.path.join(os.path.abspath(dir_out), "mpp_{}_{}".format(self.machine_name, self.current_date))
         self.csv_dir = os.path.join(self.work_dir, "csv_results")
@@ -135,7 +136,8 @@ class MaximumPlasoParserJson:
             "lnk": re.compile(r'lnk'),
             "srum": re.compile(r'srum'),
             "run": re.compile(r'windows_run'),
-            "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)')
+            "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)'),
+            "registry": re.compile(r'winreg_default')
         }
 
         self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
@@ -178,6 +180,8 @@ class MaximumPlasoParserJson:
         self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
                                          "Path", "Action"]
         self.l_csv_header_start_stop = ["Date", "Time", "message"]
+
+        self.l_csv_header_mru_run = ["Date", "Time", "cmd"]
 
         self.timeline_file_csv = ""
         self.logon_res_file_csv = ""
@@ -247,7 +251,6 @@ class MaximumPlasoParserJson:
 
         self.initialise_results_files()
 
-        self.get_machine_information()
 
     def initialise_working_directories(self):
         """
@@ -384,7 +387,7 @@ class MaximumPlasoParserJson:
 
         if self.config.get("app_compat"):
             self.app_compat_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_appcompat,
-                                                                           "shimcache")
+                                                                           "app_compat_cache")
 
         if self.config.get("sam"):
             self.sam_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_sam, "sam")
@@ -812,7 +815,6 @@ class MaximumPlasoParserJson:
             if match:
                 return match.group(1)
         return None
-
 
     #  -------------------------------------------------------------  Logs ---------------------------------------------
 
@@ -1887,6 +1889,7 @@ class MaximumPlasoParserJson:
         :param line: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
+        #TODO : parse syteme hives
         hive_type = self.identify_artefact_by_parser_name(line)
         if hive_type == "amcache":
             if self.amcache_res_file_csv or self.amcache_res_file_json:
@@ -1906,6 +1909,54 @@ class MaximumPlasoParserJson:
         if hive_type == "run":
             if self.run_res_file_csv or self.run_res_file_json:
                 self.parse_run(line)
+        if hive_type == "registry":
+            if "HKEY_LOCAL_MACHINE\System" in line.get("key_path"):
+                self.parse_system(line)
+            if "HKEY_LOCAL_MACHINE\Software" in line.get("key_path") or "HKEY_CURRENT_USER\Software" in line.get("key_path"):
+                self.parse_software(line)
+
+    def parse_system(self, event):
+        """
+        Function to parse system reg key entries.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        pass
+        #todo
+
+    def get_usb_info(self, event):
+        pass
+
+    def parse_software(self, event):
+        """
+        Function to parse software reg key entries.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        if "Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU" in event.get("key_path", "-"):
+            self.get_mru_runbox_cmd(event)
+
+    def get_mru_runbox_cmd(self, event):
+        runcmd = event.get("message", "-").replace(
+            "[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU]", "")
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, runcmd)
+            self.mru_res_file_csv.write(res)
+            self.mru_res_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "cmd": runcmd,
+                "Artefact": "RunMRU"
+            }
+            json.dump(res, self.mru_res_file_json)
+            self.mru_res_file_json.write('\n')
 
     def parse_amcache(self, event):
         """
@@ -1960,7 +2011,6 @@ class MaximumPlasoParserJson:
             sha256_hash = event.get("sha256_hash", "-")
 
             if self.output_type in ["csv", "all"]:
-                # res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,ts_time, self.separator,name, self.separator,full_path)
                 res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
                                                   ts_time, self.separator,
                                                   name, self.separator,
@@ -2940,4 +2990,18 @@ This event is generated when a user attempts to change their password. It is log
 Send to ELK
 jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "http://localhost:9200/_bulk?pretty" -H "Content-Type: application/json" --data-binary @-
 
+"parser": "pe",
+"parser": "winreg/msie_zone",
+"parser": "winreg/networks",
+"parser": "winreg/windows_boot_execute",
+"parser": "winreg/windows_run",
+"parser": "winreg/windows_sam_users",
+"parser": "winreg/windows_services",
+"parser": "winreg/windows_shutdown",
+"parser": "winreg/windows_task_cache",
+"parser": "winreg/windows_timezone",
+"parser": "winreg/windows_usb_devices",
+"parser": "winreg/windows_version",
+"parser": "winreg/winlogon",
+"parser": "winreg/winreg_default",
 """
