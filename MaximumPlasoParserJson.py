@@ -48,8 +48,10 @@ class MaximumPlasoParserJson:
         self.case_name = case_name
         if machine_name:
             self.machine_name = machine_name
+        else:
+            self.machine_name = "no_name"
 
-        self.get_machine_information()
+        #self.get_machine_information()
         self.current_date = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         self.work_dir = os.path.join(os.path.abspath(dir_out), "mpp_{}_{}".format(self.machine_name, self.current_date))
         self.csv_dir = os.path.join(self.work_dir, "csv_results")
@@ -81,6 +83,8 @@ class MaximumPlasoParserJson:
                 "user_assist": 1,
                 "mru": 1,
                 "ff_history": 1,
+                "edge_history": 1,
+                "chrome_history": 1,
                 "prefetch": 1,
                 "srum": 1,
                 "run": 1,
@@ -131,13 +135,16 @@ class MaximumPlasoParserJson:
             "sam": re.compile(r'windows_sam_users'),
             "userassist": re.compile(r'userassist'),
             "mru": re.compile(r'(bagmru)|(mru)'),
-            "ff_history": re.compile(r'firefox_history'),
+            "ff_history": re.compile(r'firefox'),
+            "chrome_history": re.compile(r'chrome'),
+            "edge_history": re.compile(r'edge'),
             "prefetch": re.compile(r'prefetch'),
             "lnk": re.compile(r'lnk'),
             "srum": re.compile(r'srum'),
             "run": re.compile(r'windows_run'),
             "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)'),
-            "registry": re.compile(r'winreg_default')
+            "registry": re.compile(r'winreg_default'),
+            "web_history": re.compile(r'webhist')
         }
 
         self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
@@ -172,8 +179,9 @@ class MaximumPlasoParserJson:
         self.l_csv_header_mru = ["Date", "Time", "entries"]
         self.l_csv_header_srum = ["Date", "Time", "description"]
         self.l_csv_header_run = ["Date", "Time", "entrie"]
-        self.l_csv_header_ff_history = ["Date", "Time", "url", "visit_count", "visit_type", "isType", "from_visit"]
-        self.l_csv_header_ie_history = ["Date", "Time", "url", "visit_count", "visit_type", "isType", "from_visit"]
+        self.l_csv_header_ff_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
+        self.l_csv_header_edge_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
+        self.l_csv_header_chrome_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
         self.l_csv_header_prefetch = ["Date", "Time", "name", "path", "nbExec", "sha256"]
         self.l_csv_header_lnk = ["Date", "Time", "description", "working_dir"]
         self.l_csv_header_mft = ["Date", "Time", "source","fileType", "action", "fileName"]
@@ -205,6 +213,7 @@ class MaximumPlasoParserJson:
         self.mru_res_file_csv = ""
         self.ff_history_res_file_csv = ""
         self.ie_history_res_file_csv = ""
+        self.chrome_history_res_file_csv = ""
         self.prefetch_res_file_csv = ""
         self.srum_res_file_csv = ""
         self.run_res_file_csv = ""
@@ -238,6 +247,7 @@ class MaximumPlasoParserJson:
         self.mru_res_file_json = ""
         self.ff_history_res_file_json = ""
         self.ie_history_res_file_json = ""
+        self.chrome_history_res_file_json = ""
         self.prefetch_res_file_json = ""
         self.srum_res_file_json = ""
         self.run_res_file_json = ""
@@ -407,10 +417,13 @@ class MaximumPlasoParserJson:
         # ----------------------------- Other ------------------------------------------------
 
         if self.config.get("ff_history"):
-            self.ff_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ff_history, "ffHistory")
+            self.ff_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ff_history, "ff_history")
 
-        if self.config.get("ie_history"):
-            self.ie_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ie_history, "ieHistory")
+        if self.config.get("edge_history"):
+            self.ie_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_edge_history, "edge_History")
+
+        if self.config.get("chrome_history"):
+            self.chrome_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_chrome_history, "chrome_History")
 
         if self.config.get("prefetch"):
             self.prefetch_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_prefetch, "prefetch")
@@ -507,6 +520,9 @@ class MaximumPlasoParserJson:
 
         if self.config.get("ie_history"):
             self.ie_history_res_file_json = self.initialise_result_file_json("ie_history")
+
+        if self.config.get("chrome_history"):
+            self.chrome_history_res_file_json = self.initialise_result_file_json("chrome_history")
 
         if self.config.get("prefetch"):
             self.prefetch_res_file_json = self.initialise_result_file_json("prefetch")
@@ -672,6 +688,9 @@ class MaximumPlasoParserJson:
             self.ff_history_res_file_csv.close()
         if self.ie_history_res_file_csv:
             self.ie_history_res_file_csv.close()
+
+        if self.chrome_history_res_file_csv:
+            self.chrome_history_res_file_csv.close()
         if self.prefetch_res_file_csv:
             self.prefetch_res_file_csv.close()
         if self.lnk_res_file_csv:
@@ -730,6 +749,8 @@ class MaximumPlasoParserJson:
             self.ff_history_res_file_json.close()
         if self.ie_history_res_file_json:
             self.ie_history_res_file_json.close()
+        if self.chrome_history_res_file_json:
+            self.chrome_history_res_file_json.close()
         if self.prefetch_res_file_json:
             self.prefetch_res_file_json.close()
         if self.lnk_res_file_json:
@@ -1889,7 +1910,6 @@ class MaximumPlasoParserJson:
         :param line: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
-        #TODO : parse syteme hives
         hive_type = self.identify_artefact_by_parser_name(line)
         if hive_type == "amcache":
             if self.amcache_res_file_csv or self.amcache_res_file_json:
@@ -1923,10 +1943,11 @@ class MaximumPlasoParserJson:
         :return: None
         """
         pass
-        #todo
+        #Todo
 
     def get_usb_info(self, event):
         pass
+    #TODO
 
     def parse_software(self, event):
         """
@@ -2227,9 +2248,13 @@ class MaximumPlasoParserJson:
         if db_type == "ff_history":
             if self.ff_history_res_file_csv or self.ff_history_res_file_json:
                 self.parse_ff_history(line)
-        if db_type == "ie_history":
+        if db_type == "edge_history":
             if self.ie_history_res_file_csv or self.ie_history_res_file_json:
-                pass
+                self.parse_edge_history(line)
+        if db_type == "chrome_history":
+            if self.chrome_history_res_file_csv or self.chrome_history_res_file_json:
+                self.parse_chrome_history(line)
+
         if db_type == "srum":
             if self.srum_res_file_csv or self.srum_res_file_json:
                 self.parse_srum(line)
@@ -2276,17 +2301,18 @@ class MaximumPlasoParserJson:
         visit_type = event.get("visit_type", "-")
         is_typed = event.get("typed", "-")
         from_visit = event.get("from_visit", "-")
-
+        data_type = event.get("data_type", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                      ts_time, self.separator,
-                                                      url, self.separator,
-                                                      visit_count, self.separator,
-                                                      visit_type, self.separator,
-                                                      is_typed, self.separator,
-                                                      from_visit)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          data_type, self.separator,
+                                                          url, self.separator,
+                                                          visit_count, self.separator,
+                                                          visit_type, self.separator,
+                                                          is_typed, self.separator,
+                                                          from_visit)
             self.ff_history_res_file_csv.write(res)
             self.ff_history_res_file_csv.write('\n')
 
@@ -2295,6 +2321,7 @@ class MaximumPlasoParserJson:
                 "caseName": self.case_name,
                 "workstation_name": self.machine_name,
                 "timestamp": "{}T{}".format(ts_date, ts_time),
+                "data_type": data_type,
                 "url": url,
                 "visit_count": visit_count,
                 "visit_type": visit_type,
@@ -2304,6 +2331,96 @@ class MaximumPlasoParserJson:
             }
             json.dump(res, self.ff_history_res_file_json)
             self.ff_history_res_file_json.write('\n')
+
+    def parse_chrome_history(self, event):
+        """
+        Function to parse firefox history.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+
+        url = event.get("url", "-")
+        visit_count = event.get("visit_count", "-")
+        visit_type = event.get("visit_type", "-")
+        is_typed = event.get("typed", "-")
+        from_visit = event.get("from_visit", "-")
+        data_type = event.get("data_type", "-")
+
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          data_type, self.separator,
+                                                          url, self.separator,
+                                                          visit_count, self.separator,
+                                                          visit_type, self.separator,
+                                                          is_typed, self.separator,
+                                                          from_visit)
+            self.chrome_history_res_file_csv.write(res)
+            self.chrome_history_res_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "data_type": data_type,
+                "url": url,
+                "visit_count": visit_count,
+                "visit_type": visit_type,
+                "is_typed": is_typed,
+                "from_visit": from_visit,
+                "Artefact": "CHROME_HISTORY"
+            }
+            json.dump(res, self.chrome_history_res_file_json)
+            self.chrome_history_res_file_json.write('\n')
+
+    def parse_edge_history(self, event):
+        """
+        Function to parse firefox history.
+        It will parse and write results to the appropriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+
+        url = event.get("url", "-")
+        visit_count = event.get("visit_count", "-")
+        visit_type = event.get("visit_type", "-")
+        is_typed = event.get("typed", "-")
+        from_visit = event.get("from_visit", "-")
+        data_type = event.get("data_type", "-")
+
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          data_type, self.separator,
+                                                          url, self.separator,
+                                                          visit_count, self.separator,
+                                                          visit_type, self.separator,
+                                                          is_typed, self.separator,
+                                                          from_visit)
+            self.ie_history_res_file_csv.write(res)
+            self.ie_history_res_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "data_type": data_type,
+                "url": url,
+                "visit_count": visit_count,
+                "visit_type": visit_type,
+                "is_typed": is_typed,
+                "from_visit": from_visit,
+                "Artefact": "IE_HISTORY"
+            }
+            json.dump(res, self.ie_history_res_file_json)
+            self.ie_history_res_file_json.write('\n')
 
     #  ------------------------------------------------------  Win Files -----------------------------------------------
 
@@ -2962,8 +3079,11 @@ if __name__ == '__main__':
 
     print("Finished in {} secondes".format(time.time() - start_time))
 
+
+
+
 """
-Info
+Info for further parsing
 location": "Microsoft-Windows-Windows Defender%4Operational.evtx
 location": "Microsoft-Windows-Windows Defender%4WHC.evtx
 event id 1116 1117 1015 1013 1014 1012 1011 1010 1009 1008 1007 1006 1005 1004 1003 1002 
@@ -2976,20 +3096,16 @@ location": "Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
 location": "Microsoft-Windows-Winlogon%4Operational.evtx
 location": "Microsoft-Windows-WinRM%4Operational.evtx
 location": "Microsoft-Windows-WMI-Activity%4Operational.evtx
-
-4608	Windows is starting up.
-This event is generated when a Windows machine is started. It is logged on domain controllers and member computers. 
- 	4609	Windows is shutting down.
-This event is generated when a Windows machine is shutting down. It is logged on domain controllers and member computers.  
- 	1102	The audit log was cleared.
-This event is generated whenever the security log is cleared. It is logged on domain controllers and member computers.  
- 	4614	A notification package has been loaded by the Security Account Manager.
-This event is generated when a user attempts to change their password. It is logged on domain controllers and member computers. 
+  
+4614 This event is generated when a user attempts to change their password. It is logged on domain controllers 
+and member computers. 
 
 
-Send to ELK
+Send json to ELK with index through curl, doesnt work with big files
 jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "http://localhost:9200/_bulk?pretty" -H "Content-Type: application/json" --data-binary @-
 
+
+Multiple plaso parser name
 "parser": "pe",
 "parser": "winreg/msie_zone",
 "parser": "winreg/networks",
