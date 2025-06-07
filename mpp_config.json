@@ -20,6 +20,8 @@
   "user_assist": 1,
   "mru": 1,
   "ff_history": 1,
+  "edge_history": 1,
+  "chrome_history": 1,
   "prefetch": 1,
   "srum": 1,
   "run": 1,
