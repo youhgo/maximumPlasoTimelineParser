@@ -91,6 +91,8 @@ class MaximumPlasoParserJson:
                 "lnk": 1,
                 "mft": 1,
                 "windefender": 1,
+                "common_registry_key": 1,
+                "windows_info": 1,
                 "timeline": 1
             }
 
@@ -130,22 +132,46 @@ class MaximumPlasoParserJson:
             # .*Microsoft-Windows-Windows_Defender%4Operational
         }
         self.d_regex_artefact_by_parser_name = {
-            "amcache": re.compile(r'amcache'),
-            "appCompat": re.compile(r'appcompatcache'),
-            "sam": re.compile(r'windows_sam_users'),
-            "userassist": re.compile(r'userassist'),
-            "mru": re.compile(r'(bagmru)|(mru)'),
+
             "ff_history": re.compile(r'firefox'),
             "chrome_history": re.compile(r'chrome'),
             "edge_history": re.compile(r'edge'),
             "prefetch": re.compile(r'prefetch'),
             "lnk": re.compile(r'lnk'),
-            "srum": re.compile(r'srum'),
-            "run": re.compile(r'windows_run'),
             "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)'),
-            "registry": re.compile(r'winreg_default'),
-            "web_history": re.compile(r'webhist')
+
+            "winreg-srum": re.compile(r'srum'),
+            "winreg-amcache": re.compile(r'amcache'),
+            "winreg-appCompat": re.compile(r'appcompatcache'),
+            "winreg-userassist": re.compile(r'userassist'),
+            "winreg-mru": re.compile(r'(bagmru)|(mru)'),
+            #TODO :
+            "winreg_default": re.compile(r'winreg/winreg_default'),
+            "winreg-msie_zone": re.compile(r'winreg/msie_zone'),
+            "winreg-networks": re.compile(r'winreg/networks'),
+            "winreg-windows_boot_execute": re.compile(r'winreg/windows_boot_execute'),
+            "winreg-windows-run": re.compile(r'winreg/windows_run'),
+            "winreg-windows_sam_users": re.compile(r'winreg/windows_sam_users'),
+            "winreg-windows_services": re.compile(r'winreg/windows_services'),
+            "winreg-windows_shutdown": re.compile(r'winreg/windows_shutdown'),
+            "winreg-windows_task_cache": re.compile(r'winreg/windows_task_cache'),
+            "winreg-windows_usb_devices": re.compile(r'winreg/windows_usb_devices'),
+            "winreg-windows_version": re.compile(r'winreg/windows_version'),
+            "winreg-windows_timezone": re.compile(r'winreg/windows_timezone'),
+            "winreg-explorer_mountpoints2": re.compile(r'winreg/explorer_mountpoints2'),
+            "winreg-explorer_programscache": re.compile(r'winreg/explorer_programscache"'),
+            "winreg-windows_typed_urls": re.compile(r'winreg/windows_typed_urls'),
+            "winreg-winlogon": re.compile(r'winreg/winlogon')
         }
+
+        ''' TODO
+        "winreg/bagmru/shell_items"
+        "winreg/mrulistex_shell_item_list"
+        "winreg/mrulistex_shell_item_list/shell_items"
+        "winreg/mrulistex_string"
+        "winreg/mrulistex_string_and_shell_item"
+        "winreg/mrulist_string" 
+        '''
 
         self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
         self.l_csv_header_4624 = ["Date", "Time", "event_code", "subject_user_name",
@@ -179,6 +205,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_mru = ["Date", "Time", "entries"]
         self.l_csv_header_srum = ["Date", "Time", "description"]
         self.l_csv_header_run = ["Date", "Time", "entrie"]
+        self.l_csv_header_comon_reg = ["Date", "Time", "type", "other"]
         self.l_csv_header_ff_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
         self.l_csv_header_edge_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
         self.l_csv_header_chrome_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
@@ -188,76 +215,74 @@ class MaximumPlasoParserJson:
         self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
                                          "Path", "Action"]
         self.l_csv_header_start_stop = ["Date", "Time", "message"]
-
         self.l_csv_header_mru_run = ["Date", "Time", "cmd"]
 
-        self.timeline_file_csv = ""
+        self.amcache_res_file_csv = ""
+        self.app_exp_file_csv = ""
+        self.app_compat_res_file_csv = ""
+        self.bits_file_csv = ""
+        self.chrome_history_res_file_csv = ""
+        self.common_reg_file_csv = ""
+        self.ff_history_res_file_csv = ""
+        self.ie_history_res_file_csv = ""
+        self.local_rdp_file_csv = ""
         self.logon_res_file_csv = ""
         self.logon_failed_file_csv = ""
         self.logon_spe_file_csv = ""
         self.logon_exp_file_csv = ""
+        self.lnk_res_file_csv = ""
+        self.mft_res_file_csv = ""
+        self.mru_res_file_csv = ""
         self.new_proc_file_csv = ""
-        self.task_scheduler_file_csv = ""
-        self.remote_rdp_file_csv = ""
-        self.local_rdp_file_csv = ""
-        self.bits_file_csv = ""
-        self.service_file_csv = ""
         self.powershell_file_csv = ""
         self.powershell_script_file_csv = ""
-        self.wmi_file_csv = ""
-        self.app_exp_file_csv = ""
-        self.amcache_res_file_csv = ""
-        self.app_compat_res_file_csv = ""
-        self.sam_res_file_csv = ""
-        self.user_assist_file_csv = ""
-        self.mru_res_file_csv = ""
-        self.ff_history_res_file_csv = ""
-        self.ie_history_res_file_csv = ""
-        self.chrome_history_res_file_csv = ""
         self.prefetch_res_file_csv = ""
-        self.srum_res_file_csv = ""
+        self.remote_rdp_file_csv = ""
         self.run_res_file_csv = ""
-        self.lnk_res_file_csv = ""
-
-        self.mft_res_file_csv = ""
-
+        self.sam_res_file_csv = ""
+        self.service_file_csv = ""
+        self.srum_res_file_csv = ""
+        self.task_scheduler_file_csv = ""
+        self.timeline_file_csv = ""
+        self.user_assist_file_csv = ""
+        self.windows_general_info_csv = ""
         self.windefender_res_file_csv = ""
-
         self.windows_start_stop_res_file_csv = ""
+        self.wmi_file_csv = ""
 
-        self.timeline_file_json = ""
+
+        self.amcache_res_file_json = ""
+        self.app_compat_res_file_json = ""
+        self.app_exp_file_json = ""
+        self.bits_file_json = ""
+        self.chrome_history_res_file_json = ""
+        self.common_reg_file_json = ""
+        self.ff_history_res_file_json = ""
+        self.ie_history_res_file_json = ""
         self.logon_res_file_json = ""
         self.logon_failed_file_json = ""
         self.logon_spe_file_json = ""
         self.logon_exp_file_json = ""
-        self.new_proc_file_json = ""
-        self.task_scheduler_file_json = ""
-        self.remote_rdp_file_json = ""
         self.local_rdp_file_json = ""
-        self.bits_file_json = ""
-        self.service_file_json = ""
+        self.lnk_res_file_json = ""
+        self.mru_res_file_json = ""
+        self.mft_res_file_json = ""
+        self.new_proc_file_json = ""
         self.powershell_file_json = ""
         self.powershell_script_file_json = ""
-        self.wmi_file_json = ""
-        self.app_exp_file_json = ""
-        self.amcache_res_file_json = ""
-        self.app_compat_res_file_json = ""
-        self.sam_res_file_json = ""
-        self.user_assist_file_json = ""
-        self.mru_res_file_json = ""
-        self.ff_history_res_file_json = ""
-        self.ie_history_res_file_json = ""
-        self.chrome_history_res_file_json = ""
         self.prefetch_res_file_json = ""
-        self.srum_res_file_json = ""
+        self.remote_rdp_file_json = ""
         self.run_res_file_json = ""
-        self.lnk_res_file_json = ""
-
-        self.mft_res_file_json = ""
-
+        self.sam_res_file_json = ""
+        self.service_file_json = ""
+        self.srum_res_file_json = ""
+        self.task_scheduler_file_json = ""
+        self.timeline_file_json = ""
+        self.user_assist_file_json = ""
         self.windefender_res_file_json = ""
-
+        self.windows_general_info_json = ""
         self.windows_start_stop_res_file_json = ""
+        self.wmi_file_json = ""
 
         self.initialise_results_files()
 
@@ -340,10 +365,12 @@ class MaximumPlasoParserJson:
         :return: None
         """
 
+        if self.config.get("windows_info", 0):
+            self.windows_general_info_csv = self.initialise_result_file_csv([], "windows_general_info")
 
+        # ----------------------------- EVTX ------------------------------------------------
         if self.config.get("user_logon_id4624", 0):
             self.logon_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_4624, "4624usrLogon")
-
         if self.config.get("user_failed_logon_id4625", 0):
             self.logon_failed_file_csv = self.initialise_result_file_csv(self.l_csv_header_4625,
                                                                          "4625usrFailLogon")
@@ -414,6 +441,9 @@ class MaximumPlasoParserJson:
         if self.config.get("run"):
             self.run_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_run, "runKey")
 
+        if self.config.get("common_registry_key"):
+            self.common_reg_file_csv = self.initialise_result_file_csv(self.l_csv_header_comon_reg, "common_registry")
+
         # ----------------------------- Other ------------------------------------------------
 
         if self.config.get("ff_history"):
@@ -445,6 +475,9 @@ class MaximumPlasoParserJson:
         Stream are keeped open to avoid opening and closing multiple file every new line of the timeline
         :return: None
         """
+
+        if self.config.get("windows_info", 0):
+            self.windows_general_info_json = self.initialise_result_file_json("windows_general_info")
 
         if self.config.get("user_logon_id4624", 0):
             self.logon_res_file_json = self.initialise_result_file_json("user_logon_id4624")
@@ -512,6 +545,9 @@ class MaximumPlasoParserJson:
 
         if self.config.get("run"):
             self.run_res_file_json = self.initialise_result_file_json("run_key")
+
+        if self.config.get("common_reg"):
+            self.common_reg_file_json = self.initialise_result_file_json("common_registry")
 
         # ----------------------------- Other ------------------------------------------------
 
@@ -1655,11 +1691,15 @@ class MaximumPlasoParserJson:
         event_code = event.get("event_identifier")
         if self.task_scheduler_file_csv or self.task_scheduler_file_json:
             if str(event_code) in ["106", "107", "140", "141", "200", "201"]:
-                self.parse_task_scheduler_from_xml(event)
-            if str(event_code) in ["4698", "4702"]:
-                pass
+                self.parse_task_scheduler_from_xml_taskevt(event)
+            if event_code == 4698:
+                self.parse_task_scheduler_from_xml_security_creation(event)
+            if event_code == 4699:
+                self.parse_task_scheduler_from_xml_security_deletion(event)
+            if event_code == 4702:
+                self.parse_task_scheduler_from_xml_security_update(event)
 
-    def parse_task_scheduler_from_xml(self, event):
+    def parse_task_scheduler_from_xml_taskevt(self, event):
         """
         Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
         The function will get the interesting information from the xml string
@@ -1730,22 +1770,216 @@ class MaximumPlasoParserJson:
             json.dump(res, self.task_scheduler_file_json)
             self.task_scheduler_file_json.write('\n')
 
-        '''
+    def parse_task_scheduler_from_xml_security_creation(self, event):
+
+        """
+        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
         evt_as_xml = event.get("xml_string")
         evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {})
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
         event_code = event.get("event_identifier")
+        user_name = "-"
+        task_name = "-"
+        command = "-"
+        arguments = "-"
+        action_type = "TaskCreated"
+        task_content = {}
 
-        name = event_data.get("Name", "-")
-        task_name = event_data.get("TaskName", "-")
-        instance_id = event_data.get("InstanceId", "-")
-        action_name = event_data.get("ActionName", "-")
-        result_code = event_data.get("ResultCode", "-")
-        user_name = event_data.get("UserName", "-")
-        user_context = event_data.get("UserContext", "-")
+        for data in event_data:
+            if data.get("@Name", "") == "SubjectUserName":
+                user_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "TaskName":
+                task_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "TaskContent":
+                task_content = data.get("#text", {})
 
-        '''
+        task_content_json = xmltodict.parse(task_content)
+        if isinstance(task_content_json, dict):
+            task_root = task_content_json.get("Task")
+            if isinstance(task_root, dict):
+                action = task_root.get("Actions")
+                if isinstance(action, dict):
+                    execc = action.get("Exec")
+                    if isinstance(execc, dict):
+                        command = execc.get("Command", "-")
+                        arguments = execc.get("Arguments", "-")
+
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          action_type, self.separator,
+                                                          user_name, self.separator,
+                                                          task_name, self.separator,
+                                                          command, self.separator,
+                                                          arguments
+                                                          )
+            self.task_scheduler_file_csv.write(res)
+            self.task_scheduler_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "action_type": action_type,
+                "user_name": user_name,
+                "task_name": task_name,
+                "command": command,
+                "arguments": arguments,
+                "Artefact": "EVTX_TASK_SCHEDULER"
+            }
+            json.dump(res, self.task_scheduler_file_json)
+            self.task_scheduler_file_json.write('\n')
+
+    def parse_task_scheduler_from_xml_security_deletion(self, event):
+
+        """
+        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        evt_as_xml = event.get("xml_string")
+        evt_as_json = xmltodict.parse(evt_as_xml)
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
+        event_code = event.get("event_identifier")
+        user_name = "-"
+        task_name = "-"
+        command = "-"
+        arguments = "-"
+        action_type = "TaskDeleted"
+        task_content = {}
+
+        for data in event_data:
+            if data.get("@Name", "") == "SubjectUserName":
+                user_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "TaskName":
+                task_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "TaskContent":
+                task_content = data.get("#text", "-")
+
+        if isinstance(task_content, dict):
+            task_content_json = xmltodict.parse(task_content)
+            if isinstance(task_content_json, dict):
+                task_root = task_content_json.get("Task")
+                if isinstance(task_root, dict):
+                    action = task_root.get("Actions")
+                    if isinstance(action, dict):
+                        execc = action.get("Exec")
+                        if isinstance(execc, dict):
+                            command = execc.get("Command", "-")
+                            arguments = execc.get("Arguments", "-")
+
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          action_type, self.separator,
+                                                          user_name, self.separator,
+                                                          task_name, self.separator,
+                                                          command, self.separator,
+                                                          arguments
+                                                          )
+            self.task_scheduler_file_csv.write(res)
+            self.task_scheduler_file_csv.write('\n')
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "action_type": action_type,
+                "user_name": user_name,
+                "task_name": task_name,
+                "command": command,
+                "arguments": arguments,
+                "Artefact": "EVTX_TASK_SCHEDULER"
+            }
+            json.dump(res, self.task_scheduler_file_json)
+            self.task_scheduler_file_json.write('\n')
+
+    def parse_task_scheduler_from_xml_security_update(self, event):
+
+        """
+        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
+        The function will get the interesting information from the xml string
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        evt_as_xml = event.get("xml_string")
+        evt_as_json = xmltodict.parse(evt_as_xml)
+        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+
+        event_code = event.get("event_identifier")
+        user_name = "-"
+        task_name = "-"
+        command = "-"
+        arguments = "-"
+        action_type = "TaskUpdated"
+        task_content = {}
+
+        for data in event_data:
+            if data.get("@Name", "") == "SubjectUserName":
+                user_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "TaskName":
+                task_name = data.get("#text", "-")
+            elif data.get("@Name", "") == "TaskContentNew":
+                task_content = data.get("#text", {})
+
+        task_content_json = xmltodict.parse(task_content)
+        if isinstance(task_content_json, dict):
+            task_root = task_content_json.get("Task")
+            if isinstance(task_root, dict):
+                action = task_root.get("Actions")
+                if isinstance(action, dict):
+                    execc = action.get("Exec")
+                    if isinstance(execc, dict):
+                        command = execc.get("Command", "-")
+                        arguments = execc.get("Arguments", "-")
+
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          event_code, self.separator,
+                                                          action_type, self.separator,
+                                                          user_name, self.separator,
+                                                          task_name, self.separator,
+                                                          command, self.separator,
+                                                          arguments
+                                                          )
+
+            self.task_scheduler_file_csv.write(res)
+            self.task_scheduler_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "eventCode": event_code,
+                "action_type": action_type,
+                "user_name": user_name,
+                "task_name": task_name,
+                "command": command,
+                "arguments": arguments,
+                "Artefact": "EVTX_TASK_SCHEDULER"
+            }
+            json.dump(res, self.task_scheduler_file_json)
+            self.task_scheduler_file_json.write('\n')
 
     #  ----------------------------------------  PowerShell ---------------------------------------------
     def parse_powershell(self, event):
@@ -1911,29 +2145,88 @@ class MaximumPlasoParserJson:
         :return: None
         """
         hive_type = self.identify_artefact_by_parser_name(line)
-        if hive_type == "amcache":
+        if hive_type == "winreg-amcache":
             if self.amcache_res_file_csv or self.amcache_res_file_json:
                 self.parse_amcache(line)
-        if hive_type == "appCompat":
+
+        if hive_type == "winreg-appCompat":
             if self.app_compat_res_file_csv or self.app_compat_res_file_json:
                 self.parse_app_compat_cache(line)
-        if hive_type == "sam":
+
+        if hive_type == "winreg-windows_sam_users":
             if self.sam_res_file_csv or self.sam_res_file_json:
                 self.parse_sam(line)
-        if hive_type == "userassist":
+
+        if hive_type == "winreg-userassist":
             if self.user_assist_file_csv or self.user_assist_file_json:
                 self.parse_user_assist(line)
-        if hive_type == "mru":
+
+        if hive_type == "winreg-mru":
             if self.mru_res_file_csv or self.mru_res_file_json:
                 self.parse_mru(line)
-        if hive_type == "run":
+
+        if hive_type == "winreg-windows-run":
             if self.run_res_file_csv or self.run_res_file_json:
                 self.parse_run(line)
-        if hive_type == "registry":
-            if "HKEY_LOCAL_MACHINE\System" in line.get("key_path"):
+
+        if hive_type == "winreg-windows_usb_devices":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_usb(line)
+
+        if hive_type == "winreg_default":
+            if 'HKEY_LOCAL_MACHINE\System' in line.get("key_path"):
                 self.parse_system(line)
-            if "HKEY_LOCAL_MACHINE\Software" in line.get("key_path") or "HKEY_CURRENT_USER\Software" in line.get("key_path"):
+            if 'HKEY_LOCAL_MACHINE\Software' in line.get("key_path") or 'HKEY_CURRENT_USER\Software' in line.get("key_path"):
                 self.parse_software(line)
+
+        if hive_type == "winreg-networks":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_network(line)
+
+        if hive_type == "winreg-windows_boot_execute":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_bootexec(line)
+
+        if hive_type == "winreg-windows_services":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_win_services(line)
+
+        if hive_type == "winreg-windows_shutdown":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_win_shutdown(line)
+
+        if hive_type == "winreg-windows_task_cache":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_task_cache(line)
+
+        if hive_type == "winreg-windows_timezone":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_timezone(line)
+
+        if hive_type == "winreg-winlogon":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_winlogon(line)
+
+        if hive_type == "winreg-windows_typed_urls":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_typed_url(line)
+
+        if hive_type == "winreg-explorer_mountpoints2":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_mountpoint(line)
+
+        if hive_type == "winreg-explorer_programscache":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_programscache(line)
+
+        if hive_type == "winreg-windows_version":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                self.parse_reg_version(line)
+
+        if hive_type == "winreg-msie_zone":
+            if self.common_reg_file_csv or self.common_reg_file_json:
+                #self.parse_reg_msie(line)
+                pass # Need better parsing and will flood output
 
     def parse_system(self, event):
         """
@@ -1945,9 +2238,301 @@ class MaximumPlasoParserJson:
         pass
         #Todo
 
-    def get_usb_info(self, event):
-        pass
-    #TODO
+    def parse_reg_usb(self, event):
+        msg = event.get("message", "-").replace(
+            "[HKEY_LOCAL_MACHINE\System\ControlSet002\Enum\\USB]", "")
+        key = "USB"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key , self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "USB_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_msie(self, event):
+        msg = event.get("settings", "-")
+        key = "MSIE"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "MSIE_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_network(self, event):
+        msg = event.get("message", "-")
+        key = "NETWORK"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "NETWORK_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_bootexec(self, event):
+        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\System\ControlSet001\Control\Session Manager]", "")
+        key = "BOOTEXEC"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "BOOTEXEC_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_win_services_leg(self, event):
+        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\System\\ControlSet001\\Services\\", "")
+        key = "WINSERVICES"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "WINSERVICES_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_win_services(self, event):
+        values = event.get("values", [])
+        key = "WINSERVICE"
+        l_formated_value = []
+        if isinstance(values, list):
+            for value in values:
+                if isinstance(value, dict):
+                    l_formated_value.append("{}:{}".format(value.get("name"), value.get("data")))
+
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator,
+                                          self.separator.join(l_formated_value))
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": values,
+                "Artefact": "WINSERVICES_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_win_shutdown(self, event):
+        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\System\\ControlSet002\\Control\\Windows]", "")
+        key = "WINSHUTDOWN"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "WINSHUTDOWN_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_task_cache(self, event):
+        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache]", "")
+        key = "TASKCACHE"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "TASKCACHE_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_timezone(self, event):
+        msg = event.get("message", "-").replace(
+            "[HKEY_LOCAL_MACHINE\\System\\ControlSet002\\Control\\TimeZoneInformation]", "").replace(
+            "[HKEY_LOCAL_MACHINE\\System\\ControlSet002\\Control\\TimeZoneInformation]", "")
+        key = "TIMEZONE"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "TIMEZONE_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_typed_url(self, event):
+        msg = event.get("entries", "-")
+        key = "TYPEDURL"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "TYPEDURL_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_winlogon(self, event):
+        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon]", "")
+        key = "WINLOGON"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "WINLOGON_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_mountpoint(self, event):
+        msg = event.get("message", "-").replace("[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2]", "")
+        key = "MOUNTPOINT"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "MOUNTPOINT_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_programscache(self, event):
+        msg = event.get("message", "-").replace("[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage]", "")
+        key = "STARTPAGE"
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
+            self.common_reg_file_csv.write(res)
+            self.common_reg_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": msg,
+                "Artefact": "STARTPAGE_REGISTRY"
+            }
+            json.dump(res, self.common_reg_file_json)
+            self.common_reg_file_json.write('\n')
+
+    def parse_reg_version(self, event):
+        values = event.get("values", [])
+        l_formated_entries = []
+        if isinstance(values, list):
+            for value in values:
+                if isinstance(value, dict):
+                    entry = "{}:    {}".format(value.get("name"), value.get("data"))
+                    l_formated_entries.append(entry)
+
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if self.output_type in ["csv", "all"]:
+            for f_entry in l_formated_entries:
+                self.windows_general_info_csv.write(f_entry)
+                self.windows_general_info_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "entry": values,
+                "Artefact": "VERSION_REGISTRY"
+            }
+            json.dump(res, self.windows_general_info_json)
+            self.windows_general_info_json.write('\n')
 
     def parse_software(self, event):
         """
@@ -2235,6 +2820,8 @@ class MaximumPlasoParserJson:
                     }
                     json.dump(res, self.run_res_file_json)
                     self.run_res_file_json.write('\n')
+
+
 
     #  -------------------------------------------------------------  DB -----------------------------------------------
 
@@ -2598,31 +3185,32 @@ class MaximumPlasoParserJson:
 
     def parse_file_mft(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        file_name_path = event.get("filename")
-        file_type = event.get("file_entry_type")
         action = event.get("timestamp_desc")
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  "MFT", self.separator,
-                                                  file_type, self.separator,
-                                                  action, self.separator,
-                                                  file_name_path)
-            self.mft_res_file_csv.write(res)
-            self.mft_res_file_csv.write('\n')
+        path_int = event.get("path_hints", [])
+        if isinstance(path_int, list):
+            for path in path_int:
+                if self.output_type in ["csv", "all"]:
+                    res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                      ts_time, self.separator,
+                                                      "MFT", self.separator,
+                                                       action, self.separator,
+                                                       path)
 
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time, ),
-                "workstation_name": self.machine_name,
-                "action": action,
-                "file_type": file_type,
-                "path": file_name_path,
-                "Artefact": "NTFS_MFT"
-            }
-            json.dump(res, self.mft_res_file_json)
-            self.mft_res_file_json.write('\n')
+                    self.mft_res_file_csv.write(res)
+                    self.mft_res_file_csv.write('\n')
+
+                if self.output_type in ["json", "all"]:
+                    res = {
+                        "caseName": self.case_name,
+                        "timestamp": "{}T{}".format(ts_date, ts_time, ),
+                        "workstation_name": self.machine_name,
+                        "action": action,
+                        "file_type": file_type,
+                        "path": path,
+                        "Artefact": "NTFS_MFT"
+                    }
+                    json.dump(res, self.mft_res_file_json)
+                    self.mft_res_file_json.write('\n')
 
     def parse_windows_defender(self, line):
         """
@@ -3120,4 +3708,33 @@ Multiple plaso parser name
 "parser": "winreg/windows_version",
 "parser": "winreg/winlogon",
 "parser": "winreg/winreg_default",
+
+
+"winreg/bagmru"
+"winreg/bagmru/shell_items"
+
+"winreg/explorer_mountpoints2"
+"winreg/explorer_programscache"
+
+"winreg/mrulistex_shell_item_list"
+"winreg/mrulistex_shell_item_list/shell_items"
+"winreg/mrulistex_string"
+"winreg/mrulistex_string_and_shell_item"
+"winreg/mrulist_string"
+"winreg/msie_zone"
+"winreg/networks"
+
+
+"winreg/windows_boot_execute"
+"winreg/windows_run"
+"winreg/windows_services"
+"winreg/windows_shutdown"
+"winreg/windows_task_cache"
+"winreg/windows_timezone"
+"winreg/windows_typed_urls"
+"winreg/windows_usb_devices"
+"winreg/windows_version"
+"winreg/winlogon"
+"winreg/winreg_default"
+
 """
