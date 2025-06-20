@@ -28,5 +28,7 @@
   "lnk": 1,
   "mft": 1,
   "windefender": 1,
+  "common_registry_key": 1,
+  "windows_info": 1,
   "timeline": 1
 }
