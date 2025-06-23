@@ -145,8 +145,12 @@ class MaximumPlasoParserJson:
             "winreg-amcache": re.compile(r'amcache'),
             "winreg-appCompat": re.compile(r'appcompatcache'),
             "winreg-userassist": re.compile(r'userassist'),
-            "winreg-mru": re.compile(r'(bagmru)|(mru)'),
-            #TODO :
+            #"winreg-mru": re.compile(r'(bagmru)|(mru)'),
+            "winreg-mru-shell_items": re.compile(r'winreg/bagmru/shell_items'),
+            "winreg-mru-exe_shell_items_list": re.compile(r'winreg/mrulistex_shell_item_list'),
+            "winreg-mru-listex_str": re.compile(r'winreg/mrulistex_string'),
+            "winreg-mru-str_and_shellitem": re.compile(r'winreg/mrulistex_string_and_shell_item'),
+
             "winreg_default": re.compile(r'winreg/winreg_default'),
             "winreg-msie_zone": re.compile(r'winreg/msie_zone'),
             "winreg-networks": re.compile(r'winreg/networks'),
@@ -164,15 +168,6 @@ class MaximumPlasoParserJson:
             "winreg-windows_typed_urls": re.compile(r'winreg/windows_typed_urls'),
             "winreg-winlogon": re.compile(r'winreg/winlogon')
         }
-
-        ''' TODO
-        "winreg/bagmru/shell_items"
-        "winreg/mrulistex_shell_item_list"
-        "winreg/mrulistex_shell_item_list/shell_items"
-        "winreg/mrulistex_string"
-        "winreg/mrulistex_string_and_shell_item"
-        "winreg/mrulist_string" 
-        '''
 
         self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
         self.l_csv_header_4624 = ["Date", "Time", "event_code", "subject_user_name",
@@ -203,7 +198,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_appcompat = ["Date", "Time", "Name", "FullPath", "Hash"]
         self.l_csv_header_sam = ["Date", "Time", "username", "login_count"]
         self.l_csv_header_usserassit = ["Date", "Time", "valueName", "appFocus", "appDuration"]
-        self.l_csv_header_mru = ["Date", "Time", "entries"]
+        self.l_csv_header_mru = ["Date", "Time", "TYPE", "NAME", "entries"]
         self.l_csv_header_srum = ["Date", "Time", "description"]
         self.l_csv_header_run = ["Date", "Time", "entrie"]
         self.l_csv_header_comon_reg = ["Date", "Time", "type", "other"]
@@ -250,7 +245,6 @@ class MaximumPlasoParserJson:
         self.windefender_res_file_csv = ""
         self.windows_start_stop_res_file_csv = ""
         self.wmi_file_csv = ""
-
 
         self.amcache_res_file_json = ""
         self.app_compat_res_file_json = ""
@@ -2146,6 +2140,7 @@ class MaximumPlasoParserJson:
         :return: None
         """
         hive_type = self.identify_artefact_by_parser_name(line)
+
         if hive_type == "winreg-amcache":
             if self.amcache_res_file_csv or self.amcache_res_file_json:
                 self.parse_amcache(line)
@@ -2165,6 +2160,26 @@ class MaximumPlasoParserJson:
         if hive_type == "winreg-mru":
             if self.mru_res_file_csv or self.mru_res_file_json:
                 self.parse_mru(line)
+
+        if hive_type == "winreg-mru-shell_items":
+            print(hive_type)
+            if self.mru_res_file_csv or self.mru_res_file_json:
+                self.parse_mru_shell_item(line)
+
+        if hive_type == "winreg-mru-exe_shell_items_list":
+            print(hive_type)
+            if self.mru_res_file_csv or self.mru_res_file_json:
+                self.parse_mru_exe_shell_items_list(line)
+
+        if hive_type == "winreg-mru-listex_str":
+            print(hive_type)
+            if self.mru_res_file_csv or self.mru_res_file_json:
+                self.parse_mru_listex_str(line)
+
+        if hive_type == "winreg-mru-str_and_shellitem":
+            print(hive_type)
+            if self.mru_res_file_csv or self.mru_res_file_json:
+                self.parse_mru_listex_str_shellitem(line)
 
         if hive_type == "winreg-windows-run":
             if self.run_res_file_csv or self.run_res_file_json:
@@ -2790,6 +2805,160 @@ class MaximumPlasoParserJson:
                                 self.mru_res_file_json.write('\n')
         except:
             print("Error parsing MRU entries")
+            print(traceback.format_exc())
+
+    def parse_mru_shell_item(self, event):
+        """
+        Function to parse mru artefact.
+        It will parse and write results to the appr)à   opriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            shell_item_path = event.get("shell_item_path", "-")
+            name = event.get("name", "-")
+            type_reg = "MRUSHELLITEM"
+            if self.output_type in ["csv", "all"]:
+                res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                  ts_time, self.separator,
+                                                  type_reg, self.separator,
+                                                  name, self.separator,
+                                                  shell_item_path)
+                self.mru_res_file_csv.write(res)
+                self.mru_res_file_csv.write('\n')
+
+            if self.output_type in ["json", "all"]:
+                res = {
+                    "caseName": self.case_name,
+                    "workstation_name": self.machine_name,
+                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                    "name": name,
+                    "shell_item_path": shell_item_path,
+                    "Artefact": "MRU"
+                }
+                json.dump(res, self.mru_res_file_json)
+                self.mru_res_file_json.write('\n')
+
+        except:
+            print("Error parsing MRU SHELL ITEM entries")
+            print(traceback.format_exc())
+
+    def parse_mru_exe_shell_items_list(self, event):
+        """
+        Function to parse mru artefact.
+        It will parse and write results to the appr)à   opriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            entries = event.get("entries", "-")
+            name = event.get("name", "-")
+            type_reg = "MRUSHELLITEMEXE"
+            if isinstance(entries, list):
+                for entry in entries:
+                    if self.output_type in ["csv", "all"]:
+                        res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          type_reg, self.separator,
+                                                          name, self.separator,
+                                                          entry)
+                        self.mru_res_file_csv.write(res)
+                        self.mru_res_file_csv.write('\n')
+
+                    if self.output_type in ["json", "all"]:
+                        res = {
+                            "caseName": self.case_name,
+                            "workstation_name": self.machine_name,
+                            "timestamp": "{}T{}".format(ts_date, ts_time),
+                            "name": name,
+                            "entry": entry,
+                            "Artefact": "MRU"
+                        }
+                        json.dump(res, self.mru_res_file_json)
+                        self.mru_res_file_json.write('\n')
+
+        except:
+            print("Error parsing MRU SHELL ITEM EXE entry")
+            print(traceback.format_exc())
+
+    def parse_mru_listex_str_shellitem(self, event):
+        """
+        Function to parse mru artefact.
+        It will parse and write results to the appr)à   opriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            entries = event.get("entries", "-")
+            name = event.get("name", "-")
+            type_reg = "MRULISTEXSHELL"
+            if isinstance(entries, list):
+                for entry in entries:
+                    if self.output_type in ["csv", "all"]:
+                        res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          type_reg, self.separator,
+                                                          name, self.separator,
+                                                          entry)
+                        self.mru_res_file_csv.write(res)
+                        self.mru_res_file_csv.write('\n')
+
+                    if self.output_type in ["json", "all"]:
+                        res = {
+                            "caseName": self.case_name,
+                            "workstation_name": self.machine_name,
+                            "timestamp": "{}T{}".format(ts_date, ts_time),
+                            "name": name,
+                            "entry": entry,
+                            "Artefact": "MRU"
+                        }
+                        json.dump(res, self.mru_res_file_json)
+                        self.mru_res_file_json.write('\n')
+
+        except:
+            print("Error parsing MRU SHELL ITEM EXE entry")
+            print(traceback.format_exc())
+
+    def parse_mru_listex_str(self, event):
+        """
+        Function to parse mru artefact.
+        It will parse and write results to the appr)à   opriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            entries = event.get("entries", "-")
+            name = event.get("name", "-")
+            type_reg = "MRULISTEX"
+            if isinstance(entries, list):
+                for entry in entries:
+                    if self.output_type in ["csv", "all"]:
+                        res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                          ts_time, self.separator,
+                                                          type_reg, self.separator,
+                                                          name, self.separator,
+                                                          entry)
+                        self.mru_res_file_csv.write(res)
+                        self.mru_res_file_csv.write('\n')
+
+                    if self.output_type in ["json", "all"]:
+                        res = {
+                            "caseName": self.case_name,
+                            "workstation_name": self.machine_name,
+                            "timestamp": "{}T{}".format(ts_date, ts_time),
+                            "name": name,
+                            "entry": entry,
+                            "Artefact": "MRU"
+                        }
+                        json.dump(res, self.mru_res_file_json)
+                        self.mru_res_file_json.write('\n')
+
+        except:
+            print("Error parsing MRU SHELL ITEM EXE entry")
             print(traceback.format_exc())
 
     def parse_run(self, event):
