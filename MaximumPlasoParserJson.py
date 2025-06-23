@@ -11,6 +11,7 @@ import time
 import sys
 
 
+
 from systemd.login import machine_names
 
 
@@ -202,6 +203,7 @@ class MaximumPlasoParserJson:
         self.l_csv_header_srum = ["Date", "Time", "description"]
         self.l_csv_header_run = ["Date", "Time", "entrie"]
         self.l_csv_header_comon_reg = ["Date", "Time", "type", "other"]
+        self.l_csv_header_mui_cache = ["Date", "Time", "type", "name", "data"]
         self.l_csv_header_ff_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
         self.l_csv_header_edge_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
         self.l_csv_header_chrome_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
@@ -229,6 +231,7 @@ class MaximumPlasoParserJson:
         self.lnk_res_file_csv = ""
         self.mft_res_file_csv = ""
         self.mru_res_file_csv = ""
+        self.mui_res_file_csv = ""
         self.new_proc_file_csv = ""
         self.powershell_file_csv = ""
         self.powershell_script_file_csv = ""
@@ -260,8 +263,9 @@ class MaximumPlasoParserJson:
         self.logon_exp_file_json = ""
         self.local_rdp_file_json = ""
         self.lnk_res_file_json = ""
-        self.mru_res_file_json = ""
         self.mft_res_file_json = ""
+        self.mru_res_file_json = ""
+        self.mui_res_file_json = ""
         self.new_proc_file_json = ""
         self.powershell_file_json = ""
         self.powershell_script_file_json = ""
@@ -438,6 +442,7 @@ class MaximumPlasoParserJson:
 
         if self.config.get("common_registry_key"):
             self.common_reg_file_csv = self.initialise_result_file_csv(self.l_csv_header_comon_reg, "common_registry")
+            self.mui_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_mui_cache, "mui_cache")
 
         # ----------------------------- Other ------------------------------------------------
 
@@ -543,6 +548,7 @@ class MaximumPlasoParserJson:
 
         if self.config.get("common_reg"):
             self.common_reg_file_json = self.initialise_result_file_json("common_registry")
+            self.mui_res_file_json= self.initialise_result_file_json("mui_cache")
 
         # ----------------------------- Other ------------------------------------------------
 
@@ -2162,22 +2168,18 @@ class MaximumPlasoParserJson:
                 self.parse_mru(line)
 
         if hive_type == "winreg-mru-shell_items":
-            print(hive_type)
             if self.mru_res_file_csv or self.mru_res_file_json:
                 self.parse_mru_shell_item(line)
 
         if hive_type == "winreg-mru-exe_shell_items_list":
-            print(hive_type)
             if self.mru_res_file_csv or self.mru_res_file_json:
                 self.parse_mru_exe_shell_items_list(line)
 
         if hive_type == "winreg-mru-listex_str":
-            print(hive_type)
             if self.mru_res_file_csv or self.mru_res_file_json:
                 self.parse_mru_listex_str(line)
 
         if hive_type == "winreg-mru-str_and_shellitem":
-            print(hive_type)
             if self.mru_res_file_csv or self.mru_res_file_json:
                 self.parse_mru_listex_str_shellitem(line)
 
@@ -2190,10 +2192,11 @@ class MaximumPlasoParserJson:
                 self.parse_reg_usb(line)
 
         if hive_type == "winreg_default":
-            if 'HKEY_LOCAL_MACHINE\System' in line.get("key_path"):
-                self.parse_system(line)
             if 'HKEY_LOCAL_MACHINE\Software' in line.get("key_path") or 'HKEY_CURRENT_USER\Software' in line.get("key_path"):
                 self.parse_software(line)
+
+            if 'HKEY_CURRENT_USER\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache' in line.get("key_path") :
+                self.parse_mui_cache(line)
 
         if hive_type == "winreg-networks":
             if self.common_reg_file_csv or self.common_reg_file_json:
@@ -2243,16 +2246,6 @@ class MaximumPlasoParserJson:
             if self.common_reg_file_csv or self.common_reg_file_json:
                 #self.parse_reg_msie(line)
                 pass # Need better parsing and will flood output
-
-    def parse_system(self, event):
-        """
-        Function to parse system reg key entries.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        pass
-        #Todo
 
     def parse_reg_usb(self, event):
         msg = event.get("message", "-").replace(
@@ -2959,6 +2952,47 @@ class MaximumPlasoParserJson:
 
         except:
             print("Error parsing MRU SHELL ITEM EXE entry")
+            print(traceback.format_exc())
+
+    def parse_mui_cache(self, event):
+        """
+        Function to parse mru artefact.
+        It will parse and write results to the appr)à   opriate result file.
+        :param event: (dict) dict containing one line of the plaso timeline,
+        :return: None
+        """
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            entries = event.get("values", "-")
+            type_reg = "MUICACHE"
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, dict):
+                        name = entry.get("name", "-")
+                        data = entry.get("data", "-")
+                        if self.output_type in ["csv", "all"]:
+                            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                              ts_time, self.separator,
+                                                              type_reg, self.separator,
+                                                              name, self.separator,
+                                                              data)
+                            self.mui_res_file_csv.write(res)
+                            self.mui_res_file_csv.write('\n')
+
+                        if self.output_type in ["json", "all"]:
+                            res = {
+                                "caseName": self.case_name,
+                                "workstation_name": self.machine_name,
+                                "timestamp": "{}T{}".format(ts_date, ts_time),
+                                "name": name,
+                                "data": data,
+                                "Artefact": "MUICACHE"
+                            }
+                            json.dump(res, self.mui_res_file_json)
+                            self.mui_res_file_json.write('\n')
+
+        except:
+            print("Error parsing MUI CACHE entry")
             print(traceback.format_exc())
 
     def parse_run(self, event):
