@@ -5,10 +5,11 @@ import pathlib
 import traceback
 import argparse
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 import xmltodict
 import time
 import sys
+
 
 from systemd.login import machine_names
 
@@ -2821,8 +2822,6 @@ class MaximumPlasoParserJson:
                     json.dump(res, self.run_res_file_json)
                     self.run_res_file_json.write('\n')
 
-
-
     #  -------------------------------------------------------------  DB -----------------------------------------------
 
     def parse_db(self, line):
@@ -3654,7 +3653,7 @@ if __name__ == '__main__':
     now = datetime.now()  # current date and time
     date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
 
-    print("Started at:", date_time)
+    print("Started at {}:".format(date_time))
 
     type_input = check_input(args.timeline)
     if type_input == "json":
@@ -3665,7 +3664,9 @@ if __name__ == '__main__':
         print("Timeline is not a valide Json, aboarding")
         exit(1)
 
-    print("Finished in {} secondes".format(time.time() - start_time))
+
+    time_in_sec = time.time() - start_time
+    print("Finished in {} ".format(timedelta(seconds=time_in_sec)))
 
 
 
@@ -3688,7 +3689,6 @@ location": "Microsoft-Windows-WMI-Activity%4Operational.evtx
 4614 This event is generated when a user attempts to change their password. It is logged on domain controllers 
 and member computers. 
 
-
 Send json to ELK with index through curl, doesnt work with big files
 jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "http://localhost:9200/_bulk?pretty" -H "Content-Type: application/json" --data-binary @-
 
@@ -3696,45 +3696,10 @@ jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "h
 Multiple plaso parser name
 "parser": "pe",
 "parser": "winreg/msie_zone",
-"parser": "winreg/networks",
-"parser": "winreg/windows_boot_execute",
-"parser": "winreg/windows_run",
-"parser": "winreg/windows_sam_users",
-"parser": "winreg/windows_services",
-"parser": "winreg/windows_shutdown",
-"parser": "winreg/windows_task_cache",
-"parser": "winreg/windows_timezone",
-"parser": "winreg/windows_usb_devices",
-"parser": "winreg/windows_version",
-"parser": "winreg/winlogon",
-"parser": "winreg/winreg_default",
-
-
-"winreg/bagmru"
 "winreg/bagmru/shell_items"
-
-"winreg/explorer_mountpoints2"
-"winreg/explorer_programscache"
-
 "winreg/mrulistex_shell_item_list"
 "winreg/mrulistex_shell_item_list/shell_items"
 "winreg/mrulistex_string"
 "winreg/mrulistex_string_and_shell_item"
 "winreg/mrulist_string"
-"winreg/msie_zone"
-"winreg/networks"
-
-
-"winreg/windows_boot_execute"
-"winreg/windows_run"
-"winreg/windows_services"
-"winreg/windows_shutdown"
-"winreg/windows_task_cache"
-"winreg/windows_timezone"
-"winreg/windows_typed_urls"
-"winreg/windows_usb_devices"
-"winreg/windows_version"
-"winreg/winlogon"
-"winreg/winreg_default"
-
 """
