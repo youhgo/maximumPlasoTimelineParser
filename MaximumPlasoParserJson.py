@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 import xmltodict
 import time
 import sys
+from pathlib import Path
 
 
 
@@ -33,7 +34,7 @@ class MaximumPlasoParserJson:
     """
 
     def __init__(self, path_to_timeline, dir_out, output_type="csv", separator="|", case_name=None, config_file=None,
-                 machine_name="") -> None:
+                 machine_name="", init_dir=True) -> None:
         """
         Constructor for the MaximumPlasoParser Class
 
@@ -58,7 +59,8 @@ class MaximumPlasoParserJson:
         self.work_dir = os.path.join(os.path.abspath(dir_out), "mpp_{}_{}".format(self.machine_name, self.current_date))
         self.csv_dir = os.path.join(self.work_dir, "csv_results")
         self.json_dir = os.path.join(self.work_dir, "json_results")
-        self.initialise_working_directories()
+        if init_dir:
+            self.initialise_working_directories()
 
         if config_file:
             self.config = self.read_json_config(config_file)
@@ -282,8 +284,8 @@ class MaximumPlasoParserJson:
         self.windows_general_info_json = ""
         self.windows_start_stop_res_file_json = ""
         self.wmi_file_json = ""
-
-        self.initialise_results_files()
+        if init_dir:
+            self.initialise_results_files()
 
 
     def initialise_working_directories(self):
@@ -3779,6 +3781,41 @@ class MaximumPlasoParserJson:
             self.timeline_file_csv.write(entry)
         self.timeline_file_csv.close()
 
+    def merge_new_file_to_timeline(self, current_timeline, new_element, out_path):
+        current_timeline_as_list = []
+        print("reading timeline")
+        with open(current_timeline) as current_timeline_file:
+            current_timeline_as_list = current_timeline_file.readlines()
+        print("timeline ingested")
+        new_elem_formated = self.format_result_file_for_timeline_ingestion(new_element)
+        print("merging files")
+        new_timeline_as_list = [*current_timeline_as_list, *new_elem_formated]
+        print("sorting timeline")
+        sorted_timeline = sorted(new_timeline_as_list)
+        print("writing new timeline")
+        new_timeline = os.path.join(out_path, "new_timeline.csv")
+        with open(new_timeline, "a") as new_timeline_file:
+            for entry in sorted_timeline:
+                new_timeline_file.write(entry)
+
+
+    def format_result_file_for_timeline_ingestion(self, result_file):
+        new_element_formated_as_list = []
+        print("ingesting new file")
+        with open(result_file, "r") as new_element_file:
+            try:
+                next(new_element_file)
+                for line in new_element_file:
+                    f_line = self.format_line(line, Path(result_file).stem)
+                    if f_line:
+                        new_element_formated_as_list.append(f_line)
+            except StopIteration:
+                print("stop iteration in file {}, skipping".format(str(file)))
+            except:
+                print(traceback.format_exc())
+
+        return new_element_formated_as_list
+
     def format_line(self, line, source):
         try:
             l_line = line.split("|")
@@ -3796,7 +3833,7 @@ def parse_args():
         'Solution to parse a json plaso timeline'))
 
     argument_parser.add_argument('-t', '--timeline', action="store",
-                                 required=True, dest="timeline", default=False,
+                                 required=False, dest="timeline", default=False,
                                  help="path to the timeline , must be json timeline")
 
     argument_parser.add_argument("-o", "--output", action="store",
@@ -3825,6 +3862,17 @@ def parse_args():
                                  required=False, dest="config_file", default=None,
                                  help="path to the json config file to be used")
 
+    argument_parser.add_argument("-a", "--append", action="store_true",
+                                 required=False, dest="append",
+                                 help="set to true to append a formated file to the timeline")
+
+    argument_parser.add_argument("--file_to_append", action="store",
+                                 required=False, dest="file_to_append",
+                                 help="path to the file to be merge with timeline")
+
+    argument_parser.add_argument("--current_timeline", action="store",
+                                 required=False, dest="current_timeline_to_merge",
+                                 help="path to the timeline to be merge with new file")
     return argument_parser
 
 
@@ -3858,13 +3906,22 @@ if __name__ == '__main__':
 
     print("Started at {}:".format(date_time))
 
+    if args.append:
+        if args.current_timeline_to_merge and args.file_to_append:
+            mp = MaximumPlasoParserJson(args.timeline, args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
+                                        args.machine_name, False)
+            mp.merge_new_file_to_timeline(args.current_timeline_to_merge, args.file_to_append, args.output_dir)
+
+            exit(1)
+        else:
+            print(parser.print_help())
     type_input = check_input(args.timeline)
     if type_input == "json":
         mp = MaximumPlasoParserJson(args.timeline, args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
                                     args.machine_name)
         mp.parse_timeline()
     else:
-        print("Timeline is not a valide Json, aboarding")
+        print("Timeline is not a valid Json, aboarding")
         exit(1)
 
 
@@ -3899,10 +3956,4 @@ jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "h
 Multiple plaso parser name
 "parser": "pe",
 "parser": "winreg/msie_zone",
-"winreg/bagmru/shell_items"
-"winreg/mrulistex_shell_item_list"
-"winreg/mrulistex_shell_item_list/shell_items"
-"winreg/mrulistex_string"
-"winreg/mrulistex_string_and_shell_item"
-"winreg/mrulist_string"
 """
