@@ -1092,62 +1092,64 @@ class MaximumPlasoParserJson:
         :param event: (dict) dict containing one line of the plaso timeline,
         :return: None
         """
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("UserData", {}).get("EventXML", [])
-        event_code = str(event.get("event_identifier"))
-        user_name = event_data.get("User", "-")
-        ip_addr = event_data.get("Adress", "-")
-        session_id = event_data.get("SessionID", "-")
-        source = event_data.get("Source", '-')
-        reason_n = event_data.get("Reason", "-")
-        target_session = event_data.get("", "-")
+        try:
+            ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+            evt_as_xml = event.get("xml_string")
+            evt_as_json = xmltodict.parse(evt_as_xml)
+            event_data = evt_as_json.get("Event", {}).get("UserData", {}).get("EventXML", [])
+            event_code = str(event.get("event_identifier"))
+            user_name = event_data.get("User", "-")
+            ip_addr = event_data.get("Adress", "-")
+            session_id = event_data.get("SessionID", "-")
+            source = event_data.get("Source", '-')
+            reason_n = event_data.get("Reason", "-")
+            target_session = event_data.get("", "-")
 
-        if event_code == "21":
-            reason = "AuthSuccess"
-        elif event_code == "24":
-            reason = "UserDisconnected"
-        elif event_code == "25":
-            reason = "UserReconnected"
-        elif event_code == "39":
-            reason = "UserHasBeenDisconnected"
-        elif event_code == "40":
-            reason = "UserHasBeenDisconnected"
-        else:
-            reason = "-"
+            if event_code == "21":
+                reason = "AuthSuccess"
+            elif event_code == "24":
+                reason = "UserDisconnected"
+            elif event_code == "25":
+                reason = "UserReconnected"
+            elif event_code == "39":
+                reason = "UserHasBeenDisconnected"
+            elif event_code == "40":
+                reason = "UserHasBeenDisconnected"
+            else:
+                reason = "-"
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                                  ts_time, self.separator,
-                                                                  event_code, self.separator,
-                                                                  user_name, self.separator,
-                                                                  ip_addr, self.separator,
-                                                                  session_id, self.separator,
-                                                                  source, self.separator,
-                                                                  target_session, self.separator,
-                                                                  reason_n, self.separator,
-                                                                  reason)
-            self.local_rdp_file_csv.write(res)
-            self.local_rdp_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "case_name": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "event_code": event_code,
-                "user_name": user_name,
-                "ip_address": ip_addr,
-                "session_id": session_id,
-                "source": source,
-                "target_session": target_session,
-                "reason_n": reason_n,
-                "reason": reason,
-                "Artefact": "EVTX_LOCAL_RDP"
-            }
-            json.dump(res, self.local_rdp_file_json)
-            self.local_rdp_file_json.write('\n')
-
+            if self.output_type in ["csv", "all"]:
+                res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                                      ts_time, self.separator,
+                                                                      event_code, self.separator,
+                                                                      user_name, self.separator,
+                                                                      ip_addr, self.separator,
+                                                                      session_id, self.separator,
+                                                                      source, self.separator,
+                                                                      target_session, self.separator,
+                                                                      reason_n, self.separator,
+                                                                      reason)
+                self.local_rdp_file_csv.write(res)
+                self.local_rdp_file_csv.write('\n')
+            if self.output_type in ["json", "all"]:
+                res = {
+                    "case_name": self.case_name,
+                    "workstation_name": self.machine_name,
+                    "timestamp": "{}T{}".format(ts_date, ts_time),
+                    "event_code": event_code,
+                    "user_name": user_name,
+                    "ip_address": ip_addr,
+                    "session_id": session_id,
+                    "source": source,
+                    "target_session": target_session,
+                    "reason_n": reason_n,
+                    "reason": reason,
+                    "Artefact": "EVTX_LOCAL_RDP"
+                }
+                json.dump(res, self.local_rdp_file_json)
+                self.local_rdp_file_json.write('\n')
+        except:
+            print("an error occured, skipping entry {}".format(traceback.format_exc))
     #  ----------------------------------------  Bits ---------------------------------------------
 
     def parse_bits(self, event):
@@ -3798,10 +3800,9 @@ class MaximumPlasoParserJson:
             for entry in sorted_timeline:
                 new_timeline_file.write(entry)
 
-
     def format_result_file_for_timeline_ingestion(self, result_file):
         new_element_formated_as_list = []
-        print("ingesting new file")
+        print("ingesting new file, it can take a while")
         with open(result_file, "r") as new_element_file:
             try:
                 next(new_element_file)
@@ -3915,10 +3916,11 @@ if __name__ == '__main__':
             exit(1)
         else:
             print(parser.print_help())
+            exit(1)
     type_input = check_input(args.timeline)
     if type_input == "json":
         mp = MaximumPlasoParserJson(args.timeline, args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
-                                    args.machine_name)
+                                    args.machine_name, True)
         mp.parse_timeline()
     else:
         print("Timeline is not a valid Json, aboarding")
