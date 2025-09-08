@@ -1191,44 +1191,45 @@ class MaximumPlasoParserJson:
         process_path = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "User":
-                user = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "User":
+                    user = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "Id":
-                identifiant = data.get("#text", "-")
+                elif data.get("@Name", "") == "Id":
+                    identifiant = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "jobOwner":
-                job_owner = data.get("#text", "-")
+                elif data.get("@Name", "") == "jobOwner":
+                    job_owner = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "jobId":
-                job_id = data.get("#text", "-")
+                elif data.get("@Name", "") == "jobId":
+                    job_id = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "jobTitle":
-                job_title = data.get("#text", "-")
+                elif data.get("@Name", "") == "jobTitle":
+                    job_title = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "bytesTotal":
-                bytes_total = data.get("#text", "-")
+                elif data.get("@Name", "") == "bytesTotal":
+                    bytes_total = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "bytesTransferred":
-                bytes_transferred = data.get("#text", "-")
+                elif data.get("@Name", "") == "bytesTransferred":
+                    bytes_transferred = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "fileCount":
-                file_count = data.get("#text", "-")
+                elif data.get("@Name", "") == "fileCount":
+                    file_count = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "fileLength":
-                file_length = data.get("#text", "-")
+                elif data.get("@Name", "") == "fileLength":
+                    file_length = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "fileTime":
-                file_time = data.get("#text", "-")
+                elif data.get("@Name", "") == "fileTime":
+                    file_time = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "name":
-                name = data.get("#text", "-")
+                elif data.get("@Name", "") == "name":
+                    name = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "url":
-                url = data.get("#text", "-")
+                elif data.get("@Name", "") == "url":
+                    url = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "processPath":
-                process_path = data.get("#text", "-")
+                elif data.get("@Name", "") == "processPath":
+                    process_path = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1325,16 +1326,17 @@ class MaximumPlasoParserJson:
         ip_port = "-"
         logon_type = "-"
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                subject_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TargetUserName":
-                target_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpAddress":
-                ip_address = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpPort":
-                ip_port = data.get("#text", "-")
-            elif data.get("@Name", "") == "LogonType":
-                logon_type = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    subject_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TargetUserName":
+                    target_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpAddress":
+                    ip_address = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpPort":
+                    ip_port = data.get("#text", "-")
+                elif data.get("@Name", "") == "LogonType":
+                    logon_type = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1398,18 +1400,19 @@ class MaximumPlasoParserJson:
         }
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                subject_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TargetUserName":
-                target_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpAddress":
-                ip_address = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpPort":
-                ip_port = data.get("#text", "-")
-            elif data.get("@Name", "") == "LogonType":
-                logon_type = data.get("#text", "-")
-            elif data.get("@Name", "") == "Status":
-                reason = d_status.get(str(data.get("#text", "-")).upper(),"-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    subject_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TargetUserName":
+                    target_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpAddress":
+                    ip_address = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpPort":
+                    ip_port = data.get("#text", "-")
+                elif data.get("@Name", "") == "LogonType":
+                    logon_type = data.get("#text", "-")
+                elif data.get("@Name", "") == "Status":
+                    reason = d_status.get(str(data.get("#text", "-")).upper(),"-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1460,16 +1463,17 @@ class MaximumPlasoParserJson:
         logon_type = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                subject_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TargetUserName":
-                target_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpAddress":
-                ip_address = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpPort":
-                ip_port = data.get("#text", "-")
-            elif data.get("@Name", "") == "LogonType":
-                logon_type = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    subject_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TargetUserName":
+                    target_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpAddress":
+                    ip_address = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpPort":
+                    ip_port = data.get("#text", "-")
+                elif data.get("@Name", "") == "LogonType":
+                    logon_type = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1518,16 +1522,17 @@ class MaximumPlasoParserJson:
         logon_type = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                subject_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TargetUserName":
-                target_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpAddress":
-                ip_address = data.get("#text", "-")
-            elif data.get("@Name", "") == "IpPort":
-                ip_port = data.get("#text", "-")
-            elif data.get("@Name", "") == "LogonType":
-                logon_type = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    subject_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TargetUserName":
+                    target_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpAddress":
+                    ip_address = data.get("#text", "-")
+                elif data.get("@Name", "") == "IpPort":
+                    ip_port = data.get("#text", "-")
+                elif data.get("@Name", "") == "LogonType":
+                    logon_type = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1577,16 +1582,17 @@ class MaximumPlasoParserJson:
         parent_proc_name = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                subject_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TargetUserName":
-                target_user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "CommandLine":
-                cmd_line = data.get("#text", "-")
-            elif data.get("@Name", "") == "NewProcessName":
-                new_proc_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "ParentProcessName":
-                parent_proc_name = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    subject_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TargetUserName":
+                    target_user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "CommandLine":
+                    cmd_line = data.get("#text", "-")
+                elif data.get("@Name", "") == "NewProcessName":
+                    new_proc_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "ParentProcessName":
+                    parent_proc_name = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1647,17 +1653,15 @@ class MaximumPlasoParserJson:
         start_type = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "AccountName":
-                account_name = data.get("#text", "-")
-
-            elif data.get("@Name", "") == "ImagePath":
-                img_path = data.get("#text", "-")
-
-            elif data.get("@Name", "") == "ServiceName":
-                service_name = data.get("#text", "-")
-
-            elif data.get("@Name", "") == "StartType":
-                start_type = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "AccountName":
+                    account_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "ImagePath":
+                    img_path = data.get("#text", "-")
+                elif data.get("@Name", "") == "ServiceName":
+                    service_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "StartType":
+                    start_type = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1727,20 +1731,21 @@ class MaximumPlasoParserJson:
         user_context = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "Name":
-                name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskName":
-                task_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "InstanceId":
-                instance_id = data.get("#text", "-")
-            elif data.get("@Name", "") == "ActionName":
-                action_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "ResultCode":
-                result_code = data.get("#text", "-")
-            elif data.get("@Name", "") == "UserName":
-                user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "UserContext":
-                user_context = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "Name":
+                    name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskName":
+                    task_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "InstanceId":
+                    instance_id = data.get("#text", "-")
+                elif data.get("@Name", "") == "ActionName":
+                    action_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "ResultCode":
+                    result_code = data.get("#text", "-")
+                elif data.get("@Name", "") == "UserName":
+                    user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "UserContext":
+                    user_context = data.get("#text", "-")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -1798,12 +1803,13 @@ class MaximumPlasoParserJson:
         task_content = {}
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskName":
-                task_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskContent":
-                task_content = data.get("#text", {})
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskName":
+                    task_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskContent":
+                    task_content = data.get("#text", {})
 
         task_content_json = xmltodict.parse(task_content)
         if isinstance(task_content_json, dict):
@@ -1868,12 +1874,13 @@ class MaximumPlasoParserJson:
         task_content = {}
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskName":
-                task_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskContent":
-                task_content = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskName":
+                    task_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskContent":
+                    task_content = data.get("#text", "-")
 
         if isinstance(task_content, dict):
             task_content_json = xmltodict.parse(task_content)
@@ -1938,12 +1945,13 @@ class MaximumPlasoParserJson:
         task_content = {}
 
         for data in event_data:
-            if data.get("@Name", "") == "SubjectUserName":
-                user_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskName":
-                task_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "TaskContentNew":
-                task_content = data.get("#text", {})
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "SubjectUserName":
+                    user_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskName":
+                    task_name = data.get("#text", "-")
+                elif data.get("@Name", "") == "TaskContentNew":
+                    task_content = data.get("#text", {})
 
         task_content_json = xmltodict.parse(task_content)
         if isinstance(task_content_json, dict):
@@ -2020,11 +2028,12 @@ class MaximumPlasoParserJson:
         script_block_text = "-"
 
         for data in event_data:
-            if data.get("@Name", "") == "Path":
-                path_to_script = data.get("#text", "-")
+            if isinstance(data, dict):
+                if data.get("@Name", "") == "Path":
+                    path_to_script = data.get("#text", "-")
 
-            elif data.get("@Name", "") == "ScriptBlockText":
-                script_block_text = str(data.get("#text", "-")).replace("\n", "")
+                elif data.get("@Name", "") == "ScriptBlockText":
+                    script_block_text = str(data.get("#text", "-")).replace("\n", "")
 
         if self.output_type in ["csv", "all"]:
             res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
@@ -3140,19 +3149,42 @@ class MaximumPlasoParserJson:
         from_visit = event.get("from_visit", "-")
         data_type = event.get("data_type", "-")
 
+        if "autofill" in event.get("data_type"):
+            mesg = event.get("message")
+        else :
+            mesg = "-"
+
+
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
 
         if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          data_type, self.separator,
-                                                          url, self.separator,
-                                                          visit_count, self.separator,
-                                                          visit_type, self.separator,
-                                                          is_typed, self.separator,
-                                                          from_visit)
+            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
+                                                              ts_time, self.separator,
+                                                              data_type, self.separator,
+                                                              url, self.separator,
+                                                              visit_count, self.separator,
+                                                              visit_type, self.separator,
+                                                              is_typed, self.separator,
+                                                              from_visit, self.separator,
+                                                              mesg)
             self.chrome_history_res_file_csv.write(res)
             self.chrome_history_res_file_csv.write('\n')
+
+        if self.output_type in ["json", "all"]:
+            res = {
+                "caseName": self.case_name,
+                "workstation_name": self.machine_name,
+                "timestamp": "{}T{}".format(ts_date, ts_time),
+                "data_type": data_type,
+                "url": url,
+                "visit_count": visit_count,
+                "visit_type": visit_type,
+                "is_typed": is_typed,
+                "from_visit": from_visit,
+                "Artefact": "CHROME_HISTORY"
+            }
+            json.dump(res, self.chrome_history_res_file_json)
+            self.chrome_history_res_file_json.write('\n')
 
         if self.output_type in ["json", "all"]:
             res = {
