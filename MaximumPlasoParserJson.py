@@ -1,126 +1,46 @@
 #!/usr/bin/python3
-import json
-import os
-import pathlib
-import traceback
 import argparse
-import re
-from datetime import datetime, timedelta
+import csv
 import xmltodict
-import time
+import os
+import traceback
+from datetime import datetime, timedelta
 import sys
+import json
+import re
+import time
 from pathlib import Path
 
 
-
-from systemd.login import machine_names
-
-
-# TODO : Parsing
-# TODO : Parse Log erasure
-
-# TODO : General
-# TODO : Parse Task Scheduler event 4698 + 4702
-
-
-class MaximumPlasoParserJson:
+class MaximumPlasoParser:
     """
-       Class MaximumPlasoParser
-       MPP or MaximumPlasoParser is a python script that will parse a plaso - Log2Timeline json timeline file.
-       The goal is to provide easily readable and straight forward files for the Forensic analyst.
-       MPP will create a file for each artefact.
-       Attributes :
-       None
+    Class MaximumPlasoParser
+    MPP or MaximumPlasoParser is a python script that will parse a plaso - Log2Timeline json timeline file.
+    The goal is to provide easily readable and straight forward files for the Forensic analyst.
+    MPP will create a CSV file for each artifact.
     """
 
-    def __init__(self, path_to_timeline, dir_out, output_type="csv", separator="|", case_name=None, config_file=None,
-                 machine_name="", init_dir=True) -> None:
+    def __init__(self, path_to_timeline, output_directory, separator="|", machine_name=""):
         """
         Constructor for the MaximumPlasoParser Class
-
-        :param dir_out: (str) directory where the results file will be written
-        :param output_type: (str) output format, can be csv or json
-        :param separator: (str) separator for csv output file
-        :param case_name:  (str) name that will be set into json result files (for practical purpose with elk)
-        :param config_file: (str) full path to a json file containing a configuration
         """
         self.path_to_timeline = path_to_timeline
-        self.dir_out = dir_out
-        self.output_type = output_type.lower()
+        self.dir_out = output_directory
         self.separator = separator
-        self.case_name = case_name
-        if machine_name:
-            self.machine_name = machine_name
-        else:
-            self.machine_name = "no_name"
+        self.machine_name = machine_name if machine_name else "no_name"
 
-        #self.get_machine_information()
-        self.current_date = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-        self.work_dir = os.path.join(os.path.abspath(dir_out), "mpp_{}_{}".format(self.machine_name, self.current_date))
+        self.current_date = datetime.utcnow().strftime("%Y-%m-%d_%H_%M_%S")
+        self.work_dir = os.path.join(os.path.abspath(self.dir_out), f"mpp_{self.machine_name}_{self.current_date}")
         self.csv_dir = os.path.join(self.work_dir, "csv_results")
-        self.json_dir = os.path.join(self.work_dir, "json_results")
-        if init_dir:
-            self.initialise_working_directories()
+        self.initialise_working_directories()
 
-        if config_file:
-            self.config = self.read_json_config(config_file)
-        else:
-            self.config = {
-                "user_logon_id4624": 1,
-                "user_failed_logon_id4625": 1,
-                "user_special_logon_id4672": 1,
-                "user_explicit_logon_id4648": 1,
-                "new_proc_file_id4688": 1,
-                "windows_Start_Stop": 1,
-                "task_scheduler": 1,
-                "remote_rdp": 1,
-                "local_rdp": 1,
-                "bits": 1,
-                "service": 1,
-                "powershell": 1,
-                "powershell_script": 1,
-                "wmi": 1,
-                "app_exp": 1,
-                "amcache": 1,
-                "app_compat": 1,
-                "sam": 1,
-                "user_assist": 1,
-                "mru": 1,
-                "ff_history": 1,
-                "edge_history": 1,
-                "chrome_history": 1,
-                "prefetch": 1,
-                "srum": 1,
-                "run": 1,
-                "lnk": 1,
-                "mft": 1,
-                "windefender": 1,
-                "common_registry_key": 1,
-                "windows_info": 1,
-                "timeline": 1
-            }
-
+        # --- Dictionaries for Regex matching ---
         self.d_regex_type_artefact = {
             "evtx": re.compile(r'winevtx'),
             "hive": re.compile(r'winreg'),
             "db": re.compile(r'(sqlite)|(esedb)'),
             "winFile": re.compile(r'(lnk)|(text)|(prefetch)'),
             "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)')
-        }
-        self.d_regex_aterfact_by_file_name = {
-            "security": re.compile(r'((s|S)ecurity\.evtx|(s|S)ecurity\.evt)'),
-            "system": re.compile(r'((s|S)ystem\.evtx|(s|S)ystem\.evt)'),
-            "taskScheduler": re.compile(r'.*TaskScheduler%4Operational\.evtx'),
-            "bits": re.compile(r'.*Bits-Client%4Operational\.evtx'),
-            "rdp_local": re.compile(r'.*TerminalServices-LocalSessionManager%4Operational\.evtx'),
-            "rdp_remot": re.compile(r'.*TerminalServices-RemoteConnectionManager%4Operational\.evtx'),
-            "powershell": re.compile(
-                r'(.*Microsoft-Windows-PowerShell%4Operational\.evtx)|(.*Windows_PowerShell\.evtx)'),
-            "wmi": re.compile(r'.*Microsoft-Windows-WMI-Activity%4Operational\.evtx'),
-            "application_experience": re.compile(
-                r'.*Microsoft-Windows-Application-Experience%4Program-Telemetry\.evtx'),
-            "amcache": re.compile(r'.*(A|a)mcache\.hve'),
-            "appCompat": re.compile(r'.*(A|a)mcache\.hve')
         }
         self.d_regex_artefact_by_source_name = {
             "security": re.compile(r'Microsoft-Windows-Security-Auditing'),
@@ -133,3861 +53,881 @@ class MaximumPlasoParserJson:
             "wmi": re.compile(r'Microsoft-Windows-WMI-Activity'),
             "application_experience": re.compile(r'Microsoft-Windows-Application-Experience'),
             "windefender": re.compile(r'Microsoft-Windows-Windows Defender')
-            # .*Microsoft-Windows-Windows_Defender%4Operational
         }
         self.d_regex_artefact_by_parser_name = {
-
-            "ff_history": re.compile(r'firefox'),
-            "chrome_history": re.compile(r'chrome'),
-            "edge_history": re.compile(r'edge'),
-            "prefetch": re.compile(r'prefetch'),
-            "lnk": re.compile(r'lnk'),
-            "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)'),
-
-            "winreg-srum": re.compile(r'srum'),
-            "winreg-amcache": re.compile(r'amcache'),
-            "winreg-appCompat": re.compile(r'appcompatcache'),
-            "winreg-userassist": re.compile(r'userassist'),
-            #"winreg-mru": re.compile(r'(bagmru)|(mru)'),
-            "winreg-mru-shell_items": re.compile(r'winreg/bagmru/shell_items'),
-            "winreg-mru-exe_shell_items_list": re.compile(r'winreg/mrulistex_shell_item_list'),
-            "winreg-mru-listex_str": re.compile(r'winreg/mrulistex_string'),
-            "winreg-mru-str_and_shellitem": re.compile(r'winreg/mrulistex_string_and_shell_item'),
-
+            "ff_history": re.compile(r'firefox'), "chrome_history": re.compile(r'chrome'),
+            "edge_history": re.compile(r'edge'), "prefetch": re.compile(r'prefetch'),
+            "lnk": re.compile(r'lnk'), "mft": re.compile(r'(filestat)|(usnjrnl)|(mft)'),
+            "winreg-srum": re.compile(r'srum'), "winreg-amcache": re.compile(r'amcache'),
+            "winreg-appCompat": re.compile(r'appcompatcache'), "winreg-userassist": re.compile(r'userassist'),
+            "winreg-mru": re.compile(r'winreg/(bagmru|mrulistex)'),
             "winreg_default": re.compile(r'winreg/winreg_default'),
-            "winreg-msie_zone": re.compile(r'winreg/msie_zone'),
             "winreg-networks": re.compile(r'winreg/networks'),
-            "winreg-windows_boot_execute": re.compile(r'winreg/windows_boot_execute'),
             "winreg-windows-run": re.compile(r'winreg/windows_run'),
             "winreg-windows_sam_users": re.compile(r'winreg/windows_sam_users'),
+            "winreg-windows_usb_devices": re.compile(r'winreg/windows_usb_devices'),
+            "winreg-windows_version": re.compile(r'winreg/windows_version'),
+            "winreg-windows_boot_execute": re.compile(r'winreg/windows_boot_execute'),
             "winreg-windows_services": re.compile(r'winreg/windows_services'),
             "winreg-windows_shutdown": re.compile(r'winreg/windows_shutdown'),
             "winreg-windows_task_cache": re.compile(r'winreg/windows_task_cache'),
-            "winreg-windows_usb_devices": re.compile(r'winreg/windows_usb_devices'),
-            "winreg-windows_version": re.compile(r'winreg/windows_version'),
             "winreg-windows_timezone": re.compile(r'winreg/windows_timezone'),
-            "winreg-explorer_mountpoints2": re.compile(r'winreg/explorer_mountpoints2'),
-            "winreg-explorer_programscache": re.compile(r'winreg/explorer_programscache"'),
-            "winreg-windows_typed_urls": re.compile(r'winreg/windows_typed_urls'),
             "winreg-winlogon": re.compile(r'winreg/winlogon')
         }
 
-        self.l_csv_header_timeline = ["Date", "Time", "SourceArtefact", "Other"]
-        self.l_csv_header_4624 = ["Date", "Time", "event_code", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port", "logon_type"]
-        self.l_csv_header_4625 = ["Date", "Time", "event_code","subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port","logon_type","failure_reason"]
-        self.l_csv_header_4672 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port"]
-        self.l_csv_header_4648 = ["Date", "Time", "event_code", "logon_type", "subject_user_name",
-                                  "target_user_name", "ip_address", "ip_port"]
-        self.l_csv_header_4688 = ["Date", "Time", "event_code", "subject_user_name", "target_user_name",
-                                  "parent_process_name", "new_process_name", "command_line"]
-        self.l_csv_header_tscheduler = ["Date", "Time", "event_code", "name", "task_name", "instance_id",
-                                        "action_name", "result_code", "user_name", "user_context"]
-        self.l_csv_header_remote_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr"]
-        self.l_csv_header_local_rdp = ["Date", "Time", "event_code", "user_name", "ip_addr", "session_id",
-                                       "source", "target_session", "reason_n", "reason"]
-        self.l_csv_header_bits = ["Date", "Time", "event_code", "id", "job_id", "job_title", "job_owner",
-                                  "user", "bytes_total", "bytes_transferred", "file_count", "file_length", "file_Time",
-                                  "name", "url", "process_path"]
-        self.l_csv_header_7045 = ["Date", "Time", "event_code", "account_name", "img_path", "service_name",
-                                  "start_type"]
-        self.l_csv_header_powershell = ["Date", "Time", "event_code", "path_to_script", "script_block_text"]
-        self.l_csv_header_script_powershell = ["Date", "Time", "event_code", "cmd"]
-        self.l_csv_header_wmi = ["Date", "Time", "user", "nameSpace", "Query"]
-        self.l_csv_header_app_exp = ["Date", "Time", "ExePath", "FixName", "Query"]
-        self.l_csv_header_amcache = ["Date", "Time", "Name", "FullPath", "id", "Hash"]
-        self.l_csv_header_appcompat = ["Date", "Time", "Name", "FullPath", "Hash"]
-        self.l_csv_header_sam = ["Date", "Time", "username", "login_count"]
-        self.l_csv_header_usserassit = ["Date", "Time", "valueName", "appFocus", "appDuration"]
-        self.l_csv_header_mru = ["Date", "Time", "TYPE", "NAME", "entries"]
-        self.l_csv_header_srum = ["Date", "Time", "description"]
-        self.l_csv_header_run = ["Date", "Time", "entrie"]
-        self.l_csv_header_comon_reg = ["Date", "Time", "type", "other"]
-        self.l_csv_header_mui_cache = ["Date", "Time", "type", "name", "data"]
-        self.l_csv_header_ff_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
-        self.l_csv_header_edge_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
-        self.l_csv_header_chrome_history = ["Date", "Time", "type", "url", "visit_count", "visit_type", "isType", "from_visit"]
-        self.l_csv_header_prefetch = ["Date", "Time", "name", "path", "nbExec", "sha256"]
-        self.l_csv_header_lnk = ["Date", "Time", "description", "working_dir"]
-        self.l_csv_header_mft = ["Date", "Time", "source","fileType", "action", "fileName"]
-        self.l_csv_header_windefender = ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName",
-                                         "Path", "Action"]
-        self.l_csv_header_start_stop = ["Date", "Time", "message"]
-        self.l_csv_header_mru_run = ["Date", "Time", "cmd"]
+        self.common_reg_map = {
+            "winreg-networks": "NETWORK", "winreg-windows_boot_execute": "BOOT_EXECUTE",
+            "winreg-windows_services": "SERVICES", "winreg-windows_shutdown": "SHUTDOWN",
+            "winreg-windows_usb_devices": "USB",
+            "winreg-windows_timezone": "TIMEZONE", "winreg-winlogon": "WINLOGON"
+        }
 
-        self.amcache_res_file_csv = ""
-        self.app_exp_file_csv = ""
-        self.app_compat_res_file_csv = ""
-        self.bits_file_csv = ""
-        self.chrome_history_res_file_csv = ""
-        self.common_reg_file_csv = ""
-        self.ff_history_res_file_csv = ""
-        self.ie_history_res_file_csv = ""
-        self.local_rdp_file_csv = ""
-        self.logon_res_file_csv = ""
-        self.logon_failed_file_csv = ""
-        self.logon_spe_file_csv = ""
-        self.logon_exp_file_csv = ""
-        self.lnk_res_file_csv = ""
-        self.mft_res_file_csv = ""
-        self.mru_res_file_csv = ""
-        self.mui_res_file_csv = ""
-        self.new_proc_file_csv = ""
-        self.powershell_file_csv = ""
-        self.powershell_script_file_csv = ""
-        self.prefetch_res_file_csv = ""
-        self.remote_rdp_file_csv = ""
-        self.run_res_file_csv = ""
-        self.sam_res_file_csv = ""
-        self.service_file_csv = ""
-        self.srum_res_file_csv = ""
-        self.task_scheduler_file_csv = ""
-        self.timeline_file_csv = ""
-        self.user_assist_file_csv = ""
-        self.windows_general_info_csv = ""
-        self.windefender_res_file_csv = ""
-        self.windows_start_stop_res_file_csv = ""
-        self.wmi_file_csv = ""
-
-        self.amcache_res_file_json = ""
-        self.app_compat_res_file_json = ""
-        self.app_exp_file_json = ""
-        self.bits_file_json = ""
-        self.chrome_history_res_file_json = ""
-        self.common_reg_file_json = ""
-        self.ff_history_res_file_json = ""
-        self.ie_history_res_file_json = ""
-        self.logon_res_file_json = ""
-        self.logon_failed_file_json = ""
-        self.logon_spe_file_json = ""
-        self.logon_exp_file_json = ""
-        self.local_rdp_file_json = ""
-        self.lnk_res_file_json = ""
-        self.mft_res_file_json = ""
-        self.mru_res_file_json = ""
-        self.mui_res_file_json = ""
-        self.new_proc_file_json = ""
-        self.powershell_file_json = ""
-        self.powershell_script_file_json = ""
-        self.prefetch_res_file_json = ""
-        self.remote_rdp_file_json = ""
-        self.run_res_file_json = ""
-        self.sam_res_file_json = ""
-        self.service_file_json = ""
-        self.srum_res_file_json = ""
-        self.task_scheduler_file_json = ""
-        self.timeline_file_json = ""
-        self.user_assist_file_json = ""
-        self.windefender_res_file_json = ""
-        self.windows_general_info_json = ""
-        self.windows_start_stop_res_file_json = ""
-        self.wmi_file_json = ""
-        if init_dir:
-            self.initialise_results_files()
-
+        # --- Centralized CSV Headers and File Handlers ---
+        self.csv_headers = {
+            "timeline": ["Date", "Time", "SourceArtefact", "Other"],
+            "windows_info": ["Date", "Time", "Key", "Value"],
+            "4624": ["Date", "Time", "event_code", "subject_user_name", "target_user_name", "ip_address", "ip_port",
+                     "logon_type"],
+            "4625": ["Date", "Time", "event_code", "subject_user_name", "target_user_name", "ip_address", "ip_port",
+                     "logon_type", "failure_reason"],
+            "4672": ["Date", "Time", "event_code", "logon_type", "subject_user_name", "target_user_name", "ip_address",
+                     "ip_port"],
+            "4648": ["Date", "Time", "event_code", "logon_type", "subject_user_name", "target_user_name", "ip_address",
+                     "ip_port"],
+            "4688": ["Date", "Time", "event_code", "subject_user_name", "target_user_name", "parent_process_name",
+                     "new_process_name", "command_line"],
+            "tscheduler": ["Date", "Time", "event_code", "name", "task_name", "instance_id", "action_name",
+                           "result_code", "user_name", "user_context"],
+            "remote_rdp": ["Date", "Time", "event_code", "user_name", "ip_addr"],
+            "local_rdp": ["Date", "Time", "event_code", "user_name", "ip_addr", "session_id", "source",
+                          "target_session", "reason_n", "reason"],
+            "bits": ["Date", "Time", "event_code", "id", "job_id", "job_title", "job_owner", "user", "bytes_total",
+                     "bytes_transferred", "file_count", "file_length", "file_Time", "name", "url", "process_path"],
+            "7045": ["Date", "Time", "event_code", "account_name", "img_path", "service_name", "start_type"],
+            "script_powershell": ["Date", "Time", "event_code", "path_to_script", "script_block_text"],
+            "powershell": ["Date", "Time", "event_code", "cmd"],
+            "wmi": ["Date", "Time", "event_code", "operation_name", "user", "namespace", "consumer", "cause", "query"],
+            "wmi_failure": ["Date", "Time", "event_code", "operation_name", "user", "namespace", "consumer", "cause",
+                            "operation"],
+            "app_exp": ["Date", "Time", "ExePath", "FixName", "event_code"],
+            "amcache": ["Date", "Time", "Name", "FullPath", "id", "Hash"],
+            "appcompat": ["Date", "Time", "Name", "FullPath", "Hash"],
+            "sam": ["Date", "Time", "username", "login_count"],
+            "userassist": ["Date", "Time", "valueName", "appFocus", "appDuration"],
+            "mru": ["Date", "Time", "TYPE", "NAME", "entries"],
+            "srum": ["Date", "Time", "description"],
+            "run": ["Date", "Time", "entrie"],
+            "common_reg": ["Date", "Time", "type", "key_path", "details"],
+            "mui_cache": ["Date", "Time", "type", "name", "data"],
+            "browser_history": ["Date", "Time", "browser", "type", "url", "visit_count", "visit_type", "isType",
+                                "from_visit", "message"],
+            "prefetch": ["Date", "Time", "name", "path", "nbExec"],
+            "lnk": ["Date", "Time", "description", "working_dir"],
+            "mft": ["Date", "Time", "source", "fileType", "action", "fileName"],
+            "windefender": ["Date", "Time", "Event", "ThreatName", "Severity", "User", "ProcessName", "Path", "Action"],
+            "start_stop": ["Date", "Time", "message"],
+            "mru_run": ["Date", "Time", "cmd"]
+        }
+        self.csv_writers = {}
+        self.file_handlers = {}
 
     def initialise_working_directories(self):
-        """
-        To create directories where the results will be written
-        :return:
-        """
         try:
-            # print("creating {}".format(self.work_dir))
             os.makedirs(self.work_dir, exist_ok=True)
-            if self.output_type == "csv" or self.output_type == "all":
-                os.makedirs(self.csv_dir, exist_ok=True)
-            if self.output_type == "json" or self.output_type == "all":
-                os.makedirs(self.json_dir, exist_ok=True)
-
-            print("result directory is located at : {}".format(self.work_dir))
-        except:
-            sys.stderr.write("\nfailed to initialises directories {}\n".format(traceback.format_exc()))
-
-    @staticmethod
-    def read_json_config(path_to_config):
-        """
-        Function to read and load a json file into a dict
-        :param path_to_config: (str) full path to a json file
-        :return: (dict) dict containing the content of the json file
-        """
-        with open(path_to_config, 'r') as config:
-            return json.load(config)
+            os.makedirs(self.csv_dir, exist_ok=True)
+            print(f"Result directory is located at: {self.work_dir}")
+        except OSError as e:
+            sys.stderr.write(f"\nFailed to initialize directories: {e}\n")
+            sys.exit(1)
 
     @staticmethod
     def convert_epoch_to_date(epoch_time):
-        """
-        Function to convert an epoch time (nanoseconds) into date and time.
-        Split into 2 variable date and time
-        :param epoch_time: (int) epoch time to be converted
-        :return:
-        (str) date in format %Y-%m-%d
-        (str) time in format %H:%M:%S
-        """
-        dt = datetime.fromtimestamp(epoch_time / 1000000).strftime('%Y-%m-%dT%H:%M:%S.%f')
-        l_dt = dt.split("T")
-        return l_dt[0], l_dt[1]
-
-    def initialise_result_file_csv(self, header, file_name, extension="csv"):
-        """
-        initialise a result file, write the header into it and return a stream to this file
-        :param header: (list[str]) list containing all column name
-        :param file_name: (str) the name of the file containing
-        :param extension: (str) the name of the extension of the file
-        :return: stream to a file
-        """
-        result_file_stream = open(os.path.join(self.csv_dir, "{}.{}".format(file_name, extension)), 'a')
-        result_file_stream.write(self.separator.join(header))
-        result_file_stream.write("\n")
-        return result_file_stream
-
-    def initialise_result_file_json(self, file_name, extension="json"):
-        """
-        initialise a result file, write the header into it and return a stream to this file
-        :param file_name: (str) the name of the file containing
-        :param extension: (str) the name of the extension of the file
-        :return: stream to a file
-        """
-        result_file_stream = open(os.path.join(self.json_dir, "{}.{}".format(file_name, extension)), 'a')
-        return result_file_stream
-
-    def initialise_results_files(self):
-        if self.output_type in ["all", "csv"]:
-            self.initialise_results_files_csv()
-        if self.output_type in ["all", "json"]:
-            self.initialise_results_files_json()
-
-    def initialise_results_files_csv(self):
-        """
-        Function that will initialise all csv result file.
-        It will open a stream to all results file and write header into it.
-        Stream are keeped open to avoid opening and closing multiple file every new line of the timeline
-        :return: None
-        """
-
-        if self.config.get("windows_info", 0):
-            self.windows_general_info_csv = self.initialise_result_file_csv([], "windows_general_info")
-
-        # ----------------------------- EVTX ------------------------------------------------
-        if self.config.get("user_logon_id4624", 0):
-            self.logon_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_4624, "4624usrLogon")
-        if self.config.get("user_failed_logon_id4625", 0):
-            self.logon_failed_file_csv = self.initialise_result_file_csv(self.l_csv_header_4625,
-                                                                         "4625usrFailLogon")
-        if self.config.get("user_special_logon_id4672", 0):
-            self.logon_spe_file_csv = self.initialise_result_file_csv(self.l_csv_header_4672,
-                                                                      "4672usrSpeLogon")
-        if self.config.get("user_explicit_logon_id4648", 0):
-            self.logon_exp_file_csv = self.initialise_result_file_csv(self.l_csv_header_4648,
-                                                                      "4648usrExpLogon")
-        if self.config.get("new_proc_file_id4688", 0):
-            self.new_proc_file_csv = self.initialise_result_file_csv(self.l_csv_header_4688,
-                                                                     "4688newProc")
-        if self.config.get("windows_Start_Stop", 0):
-            self.windows_start_stop_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_start_stop,
-                                                                                   "winStartStop")
-        if self.config.get("task_scheduler", 0):
-            self.task_scheduler_file_csv = self.initialise_result_file_csv(self.l_csv_header_tscheduler,
-                                                                           "taskScheduler")
-
-        if self.config.get("remote_rdp", 0):
-            self.remote_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_remote_rdp,
-                                                                       "rdpRemote")
-
-        if self.config.get("local_rdp", 0):
-            self.local_rdp_file_csv = self.initialise_result_file_csv(self.l_csv_header_local_rdp,
-                                                                      "rdpLocal")
-        if self.config.get("bits", 0):
-            self.bits_file_csv = self.initialise_result_file_csv(self.l_csv_header_bits, "bits")
-
-        if self.config.get("service", 0):
-            self.service_file_csv = self.initialise_result_file_csv(self.l_csv_header_7045, "7045newService")
-
-        if self.config.get("powershell", 0):
-            self.powershell_file_csv = self.initialise_result_file_csv(self.l_csv_header_powershell,
-                                                                       "powershell")
-        if self.config.get("powershell_script", 0):
-            self.powershell_script_file_csv = self.initialise_result_file_csv(self.l_csv_header_script_powershell,
-                                                                              "powershellScript")
-
-        if self.config.get("wmi", 0):
-            self.wmi_file_csv = self.initialise_result_file_csv(self.l_csv_header_wmi, "wmi")
-
-        # ----------------------------- Hives ------------------------------------------------
-
-        if self.config.get("app_exp"):
-            self.app_exp_file_csv = self.initialise_result_file_csv(self.l_csv_header_app_exp,
-                                                                    "applicationExperience")
-
-        if self.config.get("amcache"):
-            self.amcache_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_amcache, "amcache")
-
-        if self.config.get("app_compat"):
-            self.app_compat_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_appcompat,
-                                                                           "app_compat_cache")
-
-        if self.config.get("sam"):
-            self.sam_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_sam, "sam")
-
-        if self.config.get("user_assist"):
-            self.user_assist_file_csv = self.initialise_result_file_csv(self.l_csv_header_usserassit, "usrAssist")
-
-        if self.config.get("mru"):
-            self.mru_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_mru, "mru")
-
-        if self.config.get("srum"):
-            self.srum_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_srum, "srum")
-
-        if self.config.get("run"):
-            self.run_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_run, "runKey")
-
-        if self.config.get("common_registry_key"):
-            self.common_reg_file_csv = self.initialise_result_file_csv(self.l_csv_header_comon_reg, "common_registry")
-            self.mui_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_mui_cache, "mui_cache")
-
-        # ----------------------------- Other ------------------------------------------------
-
-        if self.config.get("ff_history"):
-            self.ff_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_ff_history, "ff_history")
-
-        if self.config.get("edge_history"):
-            self.ie_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_edge_history, "edge_History")
-
-        if self.config.get("chrome_history"):
-            self.chrome_history_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_chrome_history, "chrome_History")
-
-        if self.config.get("prefetch"):
-            self.prefetch_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_prefetch, "prefetch")
-
-        if self.config.get("lnk"):
-            self.lnk_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_lnk, "lnk")
-
-        if self.config.get("mft"):
-            self.mft_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_mft, "mft")
-
-        if self.config.get("windefender"):
-            self.windefender_res_file_csv = self.initialise_result_file_csv(self.l_csv_header_windefender,
-                                                                            "windefender")
-
-    def initialise_results_files_json(self):
-        """
-        Function that will initialise all csv result file.
-        It will open a stream to all results file and write header into it.
-        Stream are keeped open to avoid opening and closing multiple file every new line of the timeline
-        :return: None
-        """
-
-        if self.config.get("windows_info", 0):
-            self.windows_general_info_json = self.initialise_result_file_json("windows_general_info")
-
-        if self.config.get("user_logon_id4624", 0):
-            self.logon_res_file_json = self.initialise_result_file_json("user_logon_id4624")
-
-        if self.config.get("user_failed_logon_id4625", 0):
-            self.logon_failed_file_json = self.initialise_result_file_json("user_failed_logon_id4625")
-
-        if self.config.get("user_special_logon_id4672", 0):
-            self.logon_spe_file_json = self.initialise_result_file_json("user_special_logon_id4672")
-
-        if self.config.get("user_explicit_logon_id4648", 0):
-            self.logon_exp_file_json = self.initialise_result_file_json("user_explicit_logon_id4648")
-
-        if self.config.get("new_proc_file_id4688", 0):
-            self.new_proc_file_json = self.initialise_result_file_json("new_proc_file_id4688")
-
-        if self.config.get("windows_Start_Stop", 0):
-            self.windows_start_stop_res_file_json = self.initialise_result_file_json("windows_start_stop")
-
-        if self.config.get("task_scheduler", 0):
-            self.task_scheduler_file_json = self.initialise_result_file_json("task_scheduler")
-
-        if self.config.get("remote_rdp", 0):
-            self.remote_rdp_file_json = self.initialise_result_file_json("remote_rdp")
-
-        if self.config.get("local_rdp", 0):
-            self.local_rdp_file_json = self.initialise_result_file_json("local_rdp")
-
-        if self.config.get("bits", 0):
-            self.bits_file_json = self.initialise_result_file_json("bits")
-
-        if self.config.get("service", 0):
-            self.service_file_json = self.initialise_result_file_json("7045")
-
-        if self.config.get("powershell", 0):
-            self.powershell_file_json = self.initialise_result_file_json("powershell")
-
-        if self.config.get("powershell_script", 0):
-            self.powershell_script_file_json = self.initialise_result_file_json("powershell_script")
-
-        if self.config.get("wmi", 0):
-            self.wmi_file_json = self.initialise_result_file_json("wmi")
-
-        # ----------------------------- Hives ------------------------------------------------
-
-        if self.config.get("app_exp"):
-            self.app_exp_file_json = self.initialise_result_file_json("application_experience")
-
-        if self.config.get("amcache"):
-            self.amcache_res_file_json = self.initialise_result_file_json("amcache")
-
-        if self.config.get("app_compat"):
-            self.app_compat_res_file_json = self.initialise_result_file_json("app_compat_cache")
-        if self.config.get("sam"):
-            self.sam_res_file_json = self.initialise_result_file_json("sam")
-
-        if self.config.get("user_assist"):
-            self.user_assist_file_json = self.initialise_result_file_json("user_assist")
-
-        if self.config.get("mru"):
-            self.mru_res_file_json = self.initialise_result_file_json("mru")
-
-        if self.config.get("srum"):
-            self.srum_res_file_json = self.initialise_result_file_json("srum")
-
-        if self.config.get("run"):
-            self.run_res_file_json = self.initialise_result_file_json("run_key")
-
-        if self.config.get("common_reg"):
-            self.common_reg_file_json = self.initialise_result_file_json("common_registry")
-            self.mui_res_file_json= self.initialise_result_file_json("mui_cache")
-
-        # ----------------------------- Other ------------------------------------------------
-
-        if self.config.get("ff_history"):
-            self.ff_history_res_file_json = self.initialise_result_file_json("ff_history")
-
-        if self.config.get("ie_history"):
-            self.ie_history_res_file_json = self.initialise_result_file_json("ie_history")
-
-        if self.config.get("chrome_history"):
-            self.chrome_history_res_file_json = self.initialise_result_file_json("chrome_history")
-
-        if self.config.get("prefetch"):
-            self.prefetch_res_file_json = self.initialise_result_file_json("prefetch")
-
-        if self.config.get("lnk"):
-            self.lnk_res_file_json = self.initialise_result_file_json("lnk")
-
-        if self.config.get("mft"):
-            self.mft_res_file_json = self.initialise_result_file_json("mft")
-
-        if self.config.get("windefender"):
-            self.windefender_res_file_json = self.initialise_result_file_json("windefender")
-
-    def identify_type_artefact_by_parser(self, line):
-        """
-        Function to indentify an artefact type depending on the plaso parser used
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: (dict(key))|(str) the key containing the name of the artefact associated with the parser
-        """
-        for key, value in self.d_regex_type_artefact.items():
-            if re.search(value, line.get("parser")):
-                return key
-
-    def identify_artefact_by_filename(self, line):
-        """
-        Function to indentify an artefact type depending on the name of the file that was parsed
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: (dict(key))|(str) the key containing the name of the artefact associated with the filename
-        """
-        for key, value in self.d_regex_aterfact_by_file_name.items():
-            if re.search(value, line.get("filename")):
-                return key
-
-    def identify_artefact_by_source_name(self, line):
-        """
-        Function to indentify an artefact type depending on the source type of the file that was parsed
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: (dict(key))|(str) the key containing the name of the artefact associated with the source name
-        """
-        for key, value in self.d_regex_artefact_by_source_name.items():
-            if re.search(value, line.get("source_name")):
-                return key
-
-    def identify_artefact_by_parser_name(self, line):
-        """
-        Function to indentify an artefact depending on the plaso parser used
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: (dict(key))|(str) the key containing the name of the artefact associated with the parser
-        """
-        for key, value in self.d_regex_artefact_by_parser_name.items():
-            if re.search(value, line.get("parser")):
-                return key
-
-    def assign_parser(self, line, type_artefact):
-        """
-        Function to assign a parser depending on the artefact type
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :param type_artefact: (str) type of artefact
-        :return: None
-        """
-        # print('type artefact is {}'.format(type_artefact))
-        if type_artefact == "evtx":
-            self.parse_logs(line)
-        if type_artefact == "hive":
-            self.parse_hives(line)
-        if type_artefact == "db":
-            self.parse_db(line)
-        if type_artefact == "winFile":
-            self.parse_win_file(line)
-        if type_artefact == "mft":
-            self.parse_mft(line)
-
-    def close_files_leg(self):
-        """
-        Function to close all opened stream
-        :return:
-        """
-        self.timeline_file_csv.close()
-        self.logon_res_file.close()
-        self.logon_failed_file.close()
-        self.logon_spe_file.close()
-        self.new_proc_file.close()
-        self.logon_exp_file.close()
-        self.task_scheduler_file.close()
-        self.remote_rdp_file.close()
-        self.local_rdp_file.close()
-        self.bits_file.close()
-        self.service_file.close()
-        self.powershell_file.close()
-        self.powershell_script_file.close()
-        self.wmi_file.close()
-        self.app_exp_file.close()
-
-        self.amcache_res_file.close()
-        self.app_compat_res_file.close()
-        self.sam_res_file.close()
-        self.user_assist_file.close()
-        self.srum_res_file.close()
-        self.run_res_file.close()
-
-        self.ff_history_res_file.close()
-        self.ie_history_res_file.close()
-
-        self.prefetch_res_file.close()
-        self.lnk_res_file.close()
-        self.mft_res_file.close()
+        try:
+            dt = datetime.fromtimestamp(epoch_time / 1000000)
+            return dt.strftime('%Y-%m-%d'), dt.strftime('%H:%M:%S')
+        except (ValueError, TypeError):
+            return "-", "-"
+
+    def get_csv_writer(self, artifact_type, delimiter='|'):
+        if artifact_type not in self.csv_writers:
+            try:
+                filepath = os.path.join(self.csv_dir, f'{artifact_type}.csv')
+                file_handler = open(filepath, 'a', newline='', encoding='utf-8')
+                self.file_handlers[artifact_type] = file_handler
+                writer = csv.writer(file_handler, delimiter=delimiter)
+
+                if file_handler.tell() == 0:
+                    headers = self.csv_headers.get(artifact_type, [])
+                    if headers:
+                        writer.writerow(headers)
+
+                self.csv_writers[artifact_type] = writer
+            except IOError as e:
+                print(f"ERROR: Could not open file for artifact {artifact_type}: {e}", file=sys.stderr)
+                return None
+
+        return self.csv_writers[artifact_type]
+
+    def _xml_data_to_dict(self, event_data_list):
+        if not isinstance(event_data_list, list):
+            return {}
+        return {item.get('@Name'): item.get('#text', '-') for item in event_data_list}
 
     def close_files(self):
-        if self.output_type in ["all", "csv"]:
-            self.close_files_csv()
-        if self.output_type in ["all", "json"]:
-            self.close_files_json()
-
-    def close_files_csv(self):
-        """
-        Function to close all opened stream
-        :return:
-        """
-
-        if self.logon_res_file_csv:
-            self.logon_res_file_csv.close()
-        if self.logon_failed_file_csv:
-            self.logon_failed_file_csv.close()
-        if self.logon_spe_file_csv:
-            self.logon_spe_file_csv.close()
-        if self.logon_exp_file_csv:
-            self.logon_exp_file_csv.close()
-        if self.windows_start_stop_res_file_csv:
-            self.windows_start_stop_res_file_csv.close()
-        if self.task_scheduler_file_csv:
-            self.task_scheduler_file_csv.close()
-        if self.remote_rdp_file_csv:
-            self.remote_rdp_file_csv.close()
-        if self.local_rdp_file_csv:
-            self.local_rdp_file_csv.close()
-        if self.bits_file_csv:
-            self.bits_file_csv.close()
-        if self.service_file_csv:
-            self.service_file_csv.close()
-        if self.powershell_file_csv:
-            self.powershell_file_csv.close()
-        if self.powershell_script_file_csv:
-            self.powershell_script_file_csv.close()
-        if self.wmi_file_csv:
-            self.wmi_file_csv.close()
-        if self.app_exp_file_csv:
-            self.app_exp_file_csv.close()
-
-        if self.amcache_res_file_csv:
-            self.amcache_res_file_csv.close()
-        if self.app_compat_res_file_csv:
-            self.app_compat_res_file_csv.close()
-        if self.sam_res_file_csv:
-            self.sam_res_file_csv.close()
-        if self.user_assist_file_csv:
-            self.user_assist_file_csv.close()
-        if self.srum_res_file_csv:
-            self.srum_res_file_csv.close()
-        if self.run_res_file_csv:
-            self.run_res_file_csv.close()
-
-        if self.ff_history_res_file_csv:
-            self.ff_history_res_file_csv.close()
-        if self.ie_history_res_file_csv:
-            self.ie_history_res_file_csv.close()
-
-        if self.chrome_history_res_file_csv:
-            self.chrome_history_res_file_csv.close()
-        if self.prefetch_res_file_csv:
-            self.prefetch_res_file_csv.close()
-        if self.lnk_res_file_csv:
-            self.lnk_res_file_csv.close()
-        if self.mft_res_file_csv:
-            self.mft_res_file_csv.close()
-
-    def close_files_json(self):
-        """
-        Function to close all opened stream
-        :return:
-        """
-        if self.logon_res_file_json:
-            self.logon_res_file_json.close()
-        if self.logon_failed_file_json:
-            self.logon_failed_file_json.close()
-        if self.logon_spe_file_json:
-            self.logon_spe_file_json.close()
-        if self.logon_exp_file_json:
-            self.logon_exp_file_json.close()
-        if self.windows_start_stop_res_file_json:
-            self.windows_start_stop_res_file_json.close()
-        if self.task_scheduler_file_json:
-            self.task_scheduler_file_json.close()
-        if self.remote_rdp_file_json:
-            self.remote_rdp_file_json.close()
-        if self.local_rdp_file_json:
-            self.local_rdp_file_json.close()
-        if self.bits_file_json:
-            self.bits_file_json.close()
-        if self.service_file_json:
-            self.service_file_json.close()
-        if self.powershell_file_json:
-            self.powershell_file_json.close()
-        if self.powershell_script_file_json:
-            self.powershell_script_file_json.close()
-        if self.wmi_file_json:
-            self.wmi_file_json.close()
-        if self.app_exp_file_json:
-            self.app_exp_file_json.close()
-
-        if self.amcache_res_file_json:
-            self.amcache_res_file_json.close()
-        if self.app_compat_res_file_json:
-            self.app_compat_res_file_json.close()
-        if self.sam_res_file_json:
-            self.sam_res_file_json.close()
-        if self.user_assist_file_json:
-            self.user_assist_file_json.close()
-        if self.srum_res_file_json:
-            self.srum_res_file_json.close()
-        if self.run_res_file_json:
-            self.run_res_file_json.close()
-
-        if self.ff_history_res_file_json:
-            self.ff_history_res_file_json.close()
-        if self.ie_history_res_file_json:
-            self.ie_history_res_file_json.close()
-        if self.chrome_history_res_file_json:
-            self.chrome_history_res_file_json.close()
-        if self.prefetch_res_file_json:
-            self.prefetch_res_file_json.close()
-        if self.lnk_res_file_json:
-            self.lnk_res_file_json.close()
-        if self.mft_res_file_json:
-            self.mft_res_file_json.close()
+        print("Closing all open files...")
+        for handler in self.file_handlers.values():
+            try:
+                handler.close()
+            except Exception as e:
+                print(f"Warning: could not close a file. Error: {e}")
 
     def parse_timeline(self):
-        """
-        Main function to parse the plaso timeline
-        :param path_to_tl: (str) full path to the timeline
-        :return: None
-        """
         try:
-            with open(self.path_to_timeline) as timeline:
+            with open(self.path_to_timeline, 'r', encoding='utf-8') as timeline:
                 for line in timeline:
                     try:
                         d_line = json.loads(line)
-                    except:
-                        print("could not load json line, skiping line")
-                        print(traceback.format_exc())
+                    except json.JSONDecodeError:
                         continue
+
                     type_artefact = self.identify_type_artefact_by_parser(d_line)
                     if type_artefact:
                         self.assign_parser(d_line, type_artefact)
-
-            self.close_files()
-            self.clean_duplicates(self.work_dir)
-            if self.config.get("timeline", 0):
-                self.create_timeline()
-
-        except Exception as ex:
-            print("error with parsing")
-            print("error is {}".format(traceback.format_exc()))
+        except Exception:
+            print(f"Critical error during parsing: {traceback.format_exc()}", file=sys.stderr)
+        finally:
             self.close_files()
 
-    def get_machine_information(self):
-        print("[INFORMATION ] Getting Machine information")
-        if not self.machine_name:
-            self.machine_name = self.get_machine_name()
-        if not self.machine_name:
-            self.machine_name = "machineX"
-
-    def get_machine_name(self):
-        """
-        Main function to parse the plaso timeline
-        :param path_to_tl: (str) full path to the timeline
-        :return: None
-        """
-        try:
-            print("[MACHINE NAME] Getting Machine Name")
-            with open(self.path_to_timeline) as timeline:
-                for line in timeline:
-                    try:
-                        d_line = json.loads(line)
-                        if str(d_line.get("data_type", "-")).lower() == "windows:registry:key_value":
-                            if d_line.get("key_path",
-                                          "") == "HKEY_LOCAL_MACHINE\\System\\ControlSet001\\Control\\ComputerName\\ComputerName":
-                                computer_name = self.get_computer_name(d_line)
-                                if computer_name:
-                                     return computer_name
-                                else:
-                                    continue
-                    except:
-                        print("could not load json line, skipping line")
-                        print(traceback.format_exc())
-                        continue
-
-        except Exception as ex:
-            print("error with parsing")
-            print("error is {}".format(traceback.format_exc()))
-
-    def get_computer_name(self, event):
-        """Extrait le nom de l'ordinateur de la liste de JSONs."""
-
-        if isinstance(event.get("values"), list):
-            for value in event["values"]:
-                if value.get("name") == "ComputerName":
-                    return value.get("data")
-        elif isinstance(event.get("message"), str):
-            message = event["message"]
-            match = re.search(r"ComputerName: \[REG_SZ\] (\w+)", message)
-            if match:
-                return match.group(1)
+    def identify_type_artefact_by_parser(self, line):
+        parser = line.get("parser", "")
+        for key, value in self.d_regex_type_artefact.items():
+            if re.search(value, parser):
+                return key
         return None
 
-    #  -------------------------------------------------------------  Logs ---------------------------------------------
+    def identify_artefact_by_parser_name(self, line):
+        parser = line.get("parser", "")
+        for key, value in self.d_regex_artefact_by_parser_name.items():
+            if re.search(value, parser):
+                return key
+        return None
+
+    def identify_artefact_by_source_name(self, line):
+        source_name = line.get("source_name", "")
+        for key, value in self.d_regex_artefact_by_source_name.items():
+            if re.search(value, source_name):
+                return key
+        return None
+
+    def assign_parser(self, line, type_artefact):
+        if type_artefact == "evtx":
+            self.parse_logs(line)
+        elif type_artefact == "hive":
+            self.parse_hives(line)
+        elif type_artefact == "db":
+            self.parse_db(line)
+        elif type_artefact == "winFile":
+            self.parse_win_file(line)
+        elif type_artefact == "mft":
+            self.parse_mft(line)
 
     def parse_logs(self, line):
-        """
-        Main function to parse log type artefacts
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         log_type = self.identify_artefact_by_source_name(line)
-        if log_type == "security":
-            self.parse_security_evtx(line)
-        if log_type == "taskScheduler":
-            self.parse_task_scheduler(line)
-        if log_type == "bits":
-            self.parse_bits(line)
-        if log_type == "system":
-            self.parse_system_evtx(line)
-        if log_type == "rdp_local":
-            self.parse_rdp_local(line)
-        if log_type == "rdp_remote":
-            self.parse_rdp_remote(line)
-        if log_type == "powershell":
-            self.parse_powershell(line)
-        if log_type == "wmi":
-            self.parse_wmi(line)
-        if log_type == "application_experience":
-            self.parse_app_experience(line)
-        if log_type == "windefender":
-            self.parse_windows_defender(line)
+        if not log_type: return
 
-    #  ----------------------------------------  Wmi ---------------------------------------------
-    def parse_wmi(self, event):
-        """
-        Main function to parse wmi type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if self.wmi_file_csv or self.wmi_file_json:
-            if str(event_code) in ["5860", "5861"]:
-                self.parse_wmi_evtx_from_xml(event)
-            if str(event_code) in ["5858"]:
-                self.parse_wmi_failure_from_xml(event)
-
-    def parse_wmi_evtx_from_xml(self, event):
-        """
-        Function to parse wmi log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("UserData", {})
-
-        operation_name = list(event_data.keys())[0]
-        op_dict = event_data.get(operation_name, {})
-        namespace = op_dict.get("NamespaceName", "-")
-        user = op_dict.get("User", "-")
-        cause = op_dict.get("PossibleCause", "-").replace("\n", "")
-        query = op_dict.get("Query", "-").replace("\n", "")
-        consumer = op_dict.get("CONSUMER", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                              ts_time, self.separator,
-                                                              event_code, self.separator,
-                                                              operation_name, self.separator,
-                                                              user, self.separator,
-                                                              namespace, self.separator,
-                                                              consumer, self.separator,
-                                                              cause, self.separator,
-                                                              query)
-
-            self.wmi_file_csv.write(res)
-            self.wmi_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "case_name": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "event_code": event_code,
-                "operation_name": operation_name,
-                "user": user,
-                "namespace": namespace,
-                "consumer": consumer,
-                "cause": cause,
-                "query": query,
-                "Artefact": "WMI"
-            }
-            json.dump(res, self.wmi_file_json)
-            self.wmi_file_json.write('\n')
-
-    def parse_wmi_failure_from_xml(self, event):
-        """
-        Function to parse wmi failure log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("UserData", {})
-
-        operation_name = list(event_data.keys())[0]
-        op_dict = event_data.get(operation_name, {})
-        namespace = op_dict.get("NamespaceName", "-")
-        user = op_dict.get("User", "-")
-        cause = op_dict.get("PossibleCause", "-").replace("\n", "")
-        query = op_dict.get("Operation", "-").replace("\n", "")
-        consumer = op_dict.get("CONSUMER", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                              ts_time, self.separator,
-                                                              event_code, self.separator,
-                                                              operation_name, self.separator,
-                                                              user, self.separator,
-                                                              namespace, self.separator,
-                                                              consumer, self.separator,
-                                                              cause, self.separator,
-                                                              query)
-
-            self.wmi_file_csv.write(res)
-            self.wmi_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "case_name": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "event_code": event_code,
-                "operation_name": operation_name,
-                "user": user,
-                "namespace": namespace,
-                "consumer": consumer,
-                "cause": cause,
-                "query": query,
-                "Artefact": "WMI"
-            }
-            json.dump(res, self.wmi_file_json)
-            self.wmi_file_json.write('\n')
-
-    #  ----------------------------------------  RDP ---------------------------------------------
-    def parse_rdp_local(self, event):
-        """
-        Main function to parse rdp local type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if self.local_rdp_file_csv or self.local_rdp_file_json:
-            if str(event_code) in ["21", "24", "25", "39", "40"]:
-                self.parse_rdp_local_evtx_from_xml(event)
-
-    def parse_rdp_remote(self, event):
-        """
-        Main function to parse rdp remot type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if self.remote_rdp_file_csv or self.remote_rdp_file_json:
-            if str(event_code) in ["1149"]:
-                self.parse_rdp_remote_evtx_from_xml(event)
-
-    def parse_rdp_remote_evtx_from_xml(self, event):
-        """
-        Function to parse remote rdp log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("UserData", {}).get("EventXML", {})
-
-        event_code = event.get("event_identifier")
-        user_name = event_data.get("Param1", "-")
-        ip_addr = event_data.get("Param3", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}InitConnexion{}{}{}{}".format(ts_date, self.separator,
-                                                             ts_time, self.separator,
-                                                             event_code, self.separator,
-                                                             self.separator,
-                                                             user_name, self.separator,
-                                                             ip_addr)
-            self.remote_rdp_file_csv.write(res)
-            self.remote_rdp_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "case_name": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "event_code": event_code,
-                "user_name": user_name,
-                "ip_address": ip_addr,
-                "Artefact": "EVTX_REMOTE_RDP"
-            }
-            json.dump(res, self.remote_rdp_file_json)
-            self.remote_rdp_file_json.write('\n')
-
-    def parse_rdp_local_evtx_from_xml(self, event):
-        """
-        Function to parse local rdp log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        try:
-            ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-            evt_as_xml = event.get("xml_string")
-            evt_as_json = xmltodict.parse(evt_as_xml)
-            event_data = evt_as_json.get("Event", {}).get("UserData", {}).get("EventXML", [])
-            event_code = str(event.get("event_identifier"))
-            user_name = event_data.get("User", "-")
-            ip_addr = event_data.get("Adress", "-")
-            session_id = event_data.get("SessionID", "-")
-            source = event_data.get("Source", '-')
-            reason_n = event_data.get("Reason", "-")
-            target_session = event_data.get("", "-")
-
-            if event_code == "21":
-                reason = "AuthSuccess"
-            elif event_code == "24":
-                reason = "UserDisconnected"
-            elif event_code == "25":
-                reason = "UserReconnected"
-            elif event_code == "39":
-                reason = "UserHasBeenDisconnected"
-            elif event_code == "40":
-                reason = "UserHasBeenDisconnected"
-            else:
-                reason = "-"
-
-            if self.output_type in ["csv", "all"]:
-                res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                                      ts_time, self.separator,
-                                                                      event_code, self.separator,
-                                                                      user_name, self.separator,
-                                                                      ip_addr, self.separator,
-                                                                      session_id, self.separator,
-                                                                      source, self.separator,
-                                                                      target_session, self.separator,
-                                                                      reason_n, self.separator,
-                                                                      reason)
-                self.local_rdp_file_csv.write(res)
-                self.local_rdp_file_csv.write('\n')
-            if self.output_type in ["json", "all"]:
-                res = {
-                    "case_name": self.case_name,
-                    "workstation_name": self.machine_name,
-                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                    "event_code": event_code,
-                    "user_name": user_name,
-                    "ip_address": ip_addr,
-                    "session_id": session_id,
-                    "source": source,
-                    "target_session": target_session,
-                    "reason_n": reason_n,
-                    "reason": reason,
-                    "Artefact": "EVTX_LOCAL_RDP"
-                }
-                json.dump(res, self.local_rdp_file_json)
-                self.local_rdp_file_json.write('\n')
-        except:
-            print("an error occured, skipping entry {}".format(traceback.format_exc))
-    #  ----------------------------------------  Bits ---------------------------------------------
-
-    def parse_bits(self, event):
-        """
-        Main function to parse bits type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        if self.bits_file_csv or self.bits_file_json:
-            event_code = event.get("event_identifier")
-            if str(event_code) in ["3", "4", "59", "60", "61"]:
-                self.parse_bits_evtx_from_xml(event)
-
-    def parse_bits_evtx_from_xml(self, event):
-        """
-        Function to parse remote bits log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        user = "-"
-        identifiant = "-"
-        job_owner = "-"
-        job_id = "-"
-        job_title = "-"
-        bytes_total = "-"
-        bytes_transferred = "-"
-        file_count = "-"
-        file_length = "-"
-        file_time = "-"
-        name = "-"
-        url = "-"
-        process_path = "-"
-
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "User":
-                    user = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "Id":
-                    identifiant = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "jobOwner":
-                    job_owner = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "jobId":
-                    job_id = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "jobTitle":
-                    job_title = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "bytesTotal":
-                    bytes_total = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "bytesTransferred":
-                    bytes_transferred = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "fileCount":
-                    file_count = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "fileLength":
-                    file_length = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "fileTime":
-                    file_time = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "name":
-                    name = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "url":
-                    url = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "processPath":
-                    process_path = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                                                          ts_time, self.separator,
-                                                                                          event_code, self.separator,
-                                                                                          identifiant, self.separator,
-                                                                                          job_id, self.separator,
-                                                                                          job_title, self.separator,
-                                                                                          job_owner, self.separator,
-                                                                                          user, self.separator,
-                                                                                          bytes_total, self.separator,
-                                                                                          bytes_transferred,
-                                                                                          self.separator,
-                                                                                          file_count, self.separator,
-                                                                                          file_length, self.separator,
-                                                                                          file_time, self.separator,
-                                                                                          name, self.separator,
-                                                                                          url, self.separator,
-                                                                                          process_path)
-            self.bits_file_csv.write(res)
-            self.bits_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "identifiant": identifiant,
-                "job_id": job_id,
-                "job_title": job_title,
-                "job_owner": job_owner,
-                "user": bytes_total,
-                "bytes_transferred": bytes_transferred,
-                "file_count": file_count,
-                "file_length": file_length,
-                "file_time": file_time,
-                "name": name,
-                "url": url,
-                "process_path": process_path,
-                "Artefact": "BITS"
-            }
-            json.dump(res, self.bits_file_json)
-            self.bits_file_json.write('\n')
-
-    #  ----------------------------------------  Security ---------------------------------------------
-
-    def parse_security_evtx(self, event):
-        """
-        Main function to parse security type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if event_code == 4624:
-            if self.logon_res_file_csv or self.logon_res_file_json:
-                self.parse_logon_from_xml(event)
-
-        if event_code == 4625:
-            if self.logon_failed_file_csv or self.logon_failed_file_json:
-                self.parse_failed_logon_from_xml(event)
-
-        if event_code == 4672:
-            if self.logon_spe_file_csv or self.logon_spe_file_json:
-                self.parse_spe_logon_from_xml(event)
-
-        if event_code == 4648:
-            if self.logon_exp_file_csv or self.logon_exp_file_json:
-                self.parse_logon_exp_from_xml(event)
-
-        if event_code == 4688:
-            if self.new_proc_file_csv or self.new_proc_file_json:
-                self.parse_new_proc_from_xml(event)
-
-        if event_code == 4608 or event_code == 4609:
-            if self.windows_start_stop_res_file_csv or self.windows_start_stop_res_file_json:
-                self.parse_windows_startup_shutdown(event)
-
-    def parse_logon_from_xml(self, event):
-        """
-        Function to parse logon log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "4624"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        subject_user_name = "-"
-        target_user_name = "-"
-        ip_address = "-"
-        ip_port = "-"
-        logon_type = "-"
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    subject_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TargetUserName":
-                    target_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpAddress":
-                    ip_address = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpPort":
-                    ip_port = data.get("#text", "-")
-                elif data.get("@Name", "") == "LogonType":
-                    logon_type = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          subject_user_name, self.separator,
-                                                          target_user_name, self.separator,
-                                                          ip_address, self.separator,
-                                                          ip_port, self.separator,
-                                                          logon_type)
-            self.logon_res_file_csv.write(res)
-            self.logon_res_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "subject_user_name": subject_user_name,
-                "target_user_name": target_user_name,
-                "ip_address": ip_address,
-                "ip_port": ip_port,
-                "logon_type": logon_type,
-                "Artefact": "EVTX_SECURITY"
-            }
-            json.dump(res, self.logon_res_file_json)
-            self.logon_res_file_json.write('\n')
-
-    def parse_failed_logon_from_xml(self, event):
-        """
-        Function to parse failed logon log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "4625"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        subject_user_name = "-"
-        target_user_name = "-"
-        ip_address = "-"
-        ip_port = "-"
-        logon_type = "-"
-        reason = "-"
-        d_status = {
-            "0XC000005E": "NoLogServAvailable",
-            "0xC0000064": "BadUserAccount",
-            "0xC000006A": "BadUserNameOrPasswd",
-            "0XC000006D": "BadUserNameOrPasswd",
-            "0xC000006F": "LogonOutSideHours",
-            "0xC0000070": "LogonFromUnauthorizedWordstation",
-            "0xC0000072": "UserLogonDisabledByAdmin",
-            "0XC000015B": "UserGotNotLogonRight",
-            "0XC0000192": "NetLogonWasNotStarted",
-            "0xC0000193": "LogonWExpiredAccount",
-            "0XC0000413": "AccountNotauthorizedOnMachine",
-            "-": "-"
+        parsers = {
+            "security": self.parse_security_evtx, "taskScheduler": self.parse_task_scheduler,
+            "bits": self.parse_bits, "system": self.parse_system_evtx,
+            "rdp_local": self.parse_rdp_local, "rdp_remote": self.parse_rdp_remote,
+            "powershell": self.parse_powershell, "wmi": self.parse_wmi,
+            "application_experience": self.parse_app_experience, "windefender": self.parse_windows_defender,
         }
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    subject_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TargetUserName":
-                    target_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpAddress":
-                    ip_address = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpPort":
-                    ip_port = data.get("#text", "-")
-                elif data.get("@Name", "") == "LogonType":
-                    logon_type = data.get("#text", "-")
-                elif data.get("@Name", "") == "Status":
-                    reason = d_status.get(str(data.get("#text", "-")).upper(),"-")
+        parser_func = parsers.get(log_type)
+        if parser_func:
+            parser_func(line)
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          subject_user_name, self.separator,
-                                                          target_user_name, self.separator,
-                                                          ip_address, self.separator,
-                                                          ip_port, self.separator,
-                                                          logon_type, self.separator,
-                                                          reason)
-            self.logon_failed_file_csv.write(res)
-            self.logon_failed_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "subject_user_name": subject_user_name,
-                "target_user_name": target_user_name,
-                "ip_address": ip_address,
-                "ip_port": ip_port,
-                "logon_type": logon_type,
-                "failed_reason": reason,
-                "Artefact": "EVTX_SECURITY"
-            }
-            json.dump(res, self.logon_failed_file_json)
-            self.logon_failed_file_json.write('\n')
+    # --- EVTX PARSERS ---
+    def parse_security_evtx(self, event):
+        event_code = event.get("event_identifier")
+        if event_code == 4624:
+            self.parse_logon_from_xml(event, "4624")
+        elif event_code == 4625:
+            self.parse_failed_logon_from_xml(event)
+        elif event_code == 4672:
+            self.parse_logon_from_xml(event, "4672")
+        elif event_code == 4648:
+            self.parse_logon_from_xml(event, "4648")
+        elif event_code == 4688:
+            self.parse_new_proc_from_xml(event)
+        elif event_code in (4608, 4609):
+            self.parse_windows_startup_shutdown(event)
 
-    def parse_spe_logon_from_xml(self, event):
-        """
-        Function to parse special logon log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "4672"
+    def parse_logon_from_xml(self, event, artifact_key):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        subject_user_name = "-"
-        target_user_name = "-"
-        ip_address = "-"
-        ip_port = "-"
-        logon_type = "-"
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "subject_user_name": data.get("SubjectUserName", "-"), "target_user_name": data.get("TargetUserName", "-"),
+            "ip_address": data.get("IpAddress", "-"), "ip_port": data.get("IpPort", "-"),
+            "logon_type": data.get("LogonType", "-")
+        }
+        self._write_csv_row(artifact_key, data_dict)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    subject_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TargetUserName":
-                    target_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpAddress":
-                    ip_address = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpPort":
-                    ip_port = data.get("#text", "-")
-                elif data.get("@Name", "") == "LogonType":
-                    logon_type = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          subject_user_name, self.separator,
-                                                          target_user_name, self.separator,
-                                                          ip_address, self.separator,
-                                                          ip_port, self.separator,
-                                                          logon_type)
-            self.logon_spe_file_csv.write(res)
-            self.logon_spe_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "subject_user_name": subject_user_name,
-                "target_user_name": target_user_name,
-                "ip_address": ip_address,
-                "ip_port": ip_port,
-                "logon_type": logon_type,
-                "Artefact": "EVTX_SECURITY"
-            }
-            json.dump(res, self.logon_spe_file_json)
-            self.logon_spe_file_json.write('\n')
-
-    def parse_logon_exp_from_xml(self, event):
-        """
-        Function to explicit logon log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "4648"
+    def parse_failed_logon_from_xml(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        subject_user_name = "-"
-        target_user_name = "-"
-        ip_address = "-"
-        ip_port = "-"
-        logon_type = "-"
+        d_status = {"0XC000005E": "NoLogServAvailable", "0xC0000064": "BadUserAccount",
+                    "0XC000006A": "BadUserNameOrPasswd", "0XC000006D": "BadUserNameOrPasswd",
+                    "0XC000006F": "LogonOutSideHours", "0XC0000070": "LogonFromUnauthorizedWordstation",
+                    "0XC0000072": "UserLogonDisabledByAdmin", "0XC000015B": "UserGotNotLogonRight",
+                    "0XC0000192": "NetLogonWasNotStarted", "0xC0000193": "LogonWExpiredAccount",
+                    "0XC0000413": "AccountNotauthorizedOnMachine", "-": "-"}
+        status_code = str(data.get("Status", "-")).upper()
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    subject_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TargetUserName":
-                    target_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpAddress":
-                    ip_address = data.get("#text", "-")
-                elif data.get("@Name", "") == "IpPort":
-                    ip_port = data.get("#text", "-")
-                elif data.get("@Name", "") == "LogonType":
-                    logon_type = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          subject_user_name, self.separator,
-                                                          target_user_name, self.separator,
-                                                          ip_address, self.separator,
-                                                          ip_port, self.separator,
-                                                          logon_type)
-            self.logon_exp_file_csv.write(res)
-            self.logon_exp_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "subject_user_name": subject_user_name,
-                "target_user_name": target_user_name,
-                "ip_address": ip_address,
-                "ip_port": ip_port,
-                "logon_type": logon_type,
-                "Artefact": "EVTX_SECURITY"
-            }
-            json.dump(res, self.logon_exp_file_json)
-            self.logon_exp_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": "4625",
+            "subject_user_name": data.get("SubjectUserName", "-"), "target_user_name": data.get("TargetUserName", "-"),
+            "ip_address": data.get("IpAddress", "-"), "ip_port": data.get("IpPort", "-"),
+            "logon_type": data.get("LogonType", "-"), "failure_reason": d_status.get(status_code, status_code)
+        }
+        self._write_csv_row("4625", data_dict)
 
     def parse_new_proc_from_xml(self, event):
-        """
-        Function to parse new process log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "4688"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        subject_user_name = "-"
-        target_user_name = "-"
-        cmd_line = "-"
-        new_proc_name = "-"
-        parent_proc_name = "-"
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": "4688",
+            "subject_user_name": data.get("SubjectUserName", "-"), "target_user_name": data.get("TargetUserName", "-"),
+            "parent_process_name": data.get("ParentProcessName", "-"),
+            "new_process_name": data.get("NewProcessName", "-"),
+            "command_line": data.get("CommandLine", "-")
+        }
+        self._write_csv_row("4688", data_dict)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    subject_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TargetUserName":
-                    target_user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "CommandLine":
-                    cmd_line = data.get("#text", "-")
-                elif data.get("@Name", "") == "NewProcessName":
-                    new_proc_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "ParentProcessName":
-                    parent_proc_name = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          subject_user_name, self.separator,
-                                                          target_user_name, self.separator,
-                                                          parent_proc_name, self.separator,
-                                                          new_proc_name, self.separator,
-                                                          cmd_line)
-            self.new_proc_file_csv.write(res)
-            self.new_proc_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "subject_user_name": subject_user_name,
-                "target_user_name": target_user_name,
-                "new_process_name": new_proc_name,
-                "parent_process_name": parent_proc_name,
-                "cmd_line": cmd_line,
-                "Artefact": "EVTX_SECURITY"
-            }
-            json.dump(res, self.new_proc_file_json)
-            self.new_proc_file_json.write('\n')
-
-    #  ----------------------------------------  System ---------------------------------------------
     def parse_system_evtx(self, event):
-        """
-        Main function to parse system type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if event_code == 7045:
-            if self.service_file_csv or self.service_file_json:
-                self.parse_service_from_xml(event)
+        if event.get("event_identifier") == 7045: self.parse_service_from_xml(event)
 
     def parse_service_from_xml(self, event):
-        """
-        Function to parse service creation log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        account_name = "-"
-        img_path = "-"
-        service_name = "-"
-        start_type = "-"
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": "7045", "account_name": data.get("AccountName", "-"),
+            "img_path": data.get("ImagePath", "-"), "service_name": data.get("ServiceName", "-"),
+            "start_type": data.get("StartType", "-")
+        }
+        self._write_csv_row("7045", data_dict)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "AccountName":
-                    account_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "ImagePath":
-                    img_path = data.get("#text", "-")
-                elif data.get("@Name", "") == "ServiceName":
-                    service_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "StartType":
-                    start_type = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  event_code, self.separator,
-                                                  account_name, self.separator,
-                                                  img_path, self.separator,
-                                                  service_name, self.separator,
-                                                  start_type)
-
-            self.service_file_csv.write(res)
-            self.service_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "account_name": account_name,
-                "imgage_path": img_path,
-                "service_name": service_name,
-                "start_type": start_type,
-                "Artefact": "EVTX_SYSTEM"
-            }
-            json.dump(res, self.service_file_json)
-            self.service_file_json.write('\n')
-
-    #  ----------------------------------------  Tasks ---------------------------------------------
     def parse_task_scheduler(self, event):
-        """
-        Main function to parse task scheduler type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if self.task_scheduler_file_csv or self.task_scheduler_file_json:
-            if str(event_code) in ["106", "107", "140", "141", "200", "201"]:
-                self.parse_task_scheduler_from_xml_taskevt(event)
-            if event_code == 4698:
-                self.parse_task_scheduler_from_xml_security_creation(event)
-            if event_code == 4699:
-                self.parse_task_scheduler_from_xml_security_deletion(event)
-            if event_code == 4702:
-                self.parse_task_scheduler_from_xml_security_update(event)
+        if str(event.get("event_identifier")) in ["106", "107", "140", "141", "200", "201"]:
+            self.parse_task_scheduler_from_xml_taskevt(event)
 
     def parse_task_scheduler_from_xml_taskevt(self, event):
-        """
-        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        event_code = event.get("event_identifier")
-        name = "-"
-        task_name = "-"
-        instance_id = "-"
-        action_name = "-"
-        result_code = "-"
-        user_name = "-"
-        user_context = "-"
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "name": data.get("Name", "-"), "task_name": data.get("TaskName", "-"),
+            "instance_id": data.get("InstanceId", "-"), "action_name": data.get("ActionName", "-"),
+            "result_code": data.get("ResultCode", "-"), "user_name": data.get("UserName", "-"),
+            "user_context": data.get("UserContext", "-")
+        }
+        self._write_csv_row("tscheduler", data_dict)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "Name":
-                    name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskName":
-                    task_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "InstanceId":
-                    instance_id = data.get("#text", "-")
-                elif data.get("@Name", "") == "ActionName":
-                    action_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "ResultCode":
-                    result_code = data.get("#text", "-")
-                elif data.get("@Name", "") == "UserName":
-                    user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "UserContext":
-                    user_context = data.get("#text", "-")
+    def parse_bits(self, event):
+        if str(event.get("event_identifier")) in ["3", "4", "59", "60", "61"]:
+            self.parse_bits_evtx_from_xml(event)
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                                  ts_time, self.separator,
-                                                                  event_code, self.separator,
-                                                                  name, self.separator,
-                                                                  task_name, self.separator,
-                                                                  instance_id, self.separator,
-                                                                  action_name, self.separator,
-                                                                  result_code, self.separator,
-                                                                  user_name, self.separator,
-                                                                  user_context)
-            self.task_scheduler_file_csv.write(res)
-            self.task_scheduler_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "name": name,
-                "task_name": task_name,
-                "instance_id": instance_id,
-                "action_name": action_name,
-                "result_code": result_code,
-                "user_name": user_name,
-                "user_context": user_context,
-                "Artefact": "EVTX_TASK_SCHEDULER"
-            }
-
-            json.dump(res, self.task_scheduler_file_json)
-            self.task_scheduler_file_json.write('\n')
-
-    def parse_task_scheduler_from_xml_security_creation(self, event):
-
-        """
-        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
+    def parse_bits_evtx_from_xml(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        event_code = event.get("event_identifier")
-        user_name = "-"
-        task_name = "-"
-        command = "-"
-        arguments = "-"
-        action_type = "TaskCreated"
-        task_content = {}
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "id": data.get("Id", "-"), "job_id": data.get("jobId", "-"), "job_title": data.get("jobTitle", "-"),
+            "job_owner": data.get("jobOwner", "-"), "user": data.get("User", "-"),
+            "bytes_total": data.get("bytesTotal", "-"), "bytes_transferred": data.get("bytesTransferred", "-"),
+            "file_count": data.get("fileCount", "-"), "file_length": data.get("fileLength", "-"),
+            "file_Time": data.get("fileTime", "-"), "name": data.get("name", "-"), "url": data.get("url", "-"),
+            "process_path": data.get("processPath", "-")
+        }
+        self._write_csv_row("bits", data_dict)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskName":
-                    task_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskContent":
-                    task_content = data.get("#text", {})
-
-        task_content_json = xmltodict.parse(task_content)
-        if isinstance(task_content_json, dict):
-            task_root = task_content_json.get("Task")
-            if isinstance(task_root, dict):
-                action = task_root.get("Actions")
-                if isinstance(action, dict):
-                    execc = action.get("Exec")
-                    if isinstance(execc, dict):
-                        command = execc.get("Command", "-")
-                        arguments = execc.get("Arguments", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          action_type, self.separator,
-                                                          user_name, self.separator,
-                                                          task_name, self.separator,
-                                                          command, self.separator,
-                                                          arguments
-                                                          )
-            self.task_scheduler_file_csv.write(res)
-            self.task_scheduler_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "action_type": action_type,
-                "user_name": user_name,
-                "task_name": task_name,
-                "command": command,
-                "arguments": arguments,
-                "Artefact": "EVTX_TASK_SCHEDULER"
-            }
-            json.dump(res, self.task_scheduler_file_json)
-            self.task_scheduler_file_json.write('\n')
-
-    def parse_task_scheduler_from_xml_security_deletion(self, event):
-
-        """
-        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
+    def parse_windows_startup_shutdown(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        message = "WINDOWS STARTUP" if event.get("event_identifier") == 4608 else "WINDOWS SHUTDOWN"
+        data_dict = {"Date": ts_date, "Time": ts_time, "message": message}
+        self._write_csv_row("start_stop", data_dict)
 
-        event_code = event.get("event_identifier")
-        user_name = "-"
-        task_name = "-"
-        command = "-"
-        arguments = "-"
-        action_type = "TaskDeleted"
-        task_content = {}
+    def parse_rdp_remote(self, event):
+        if str(event.get("event_identifier")) == "1149":
+            self.parse_remote_rdp_evtx_from_xml(event)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskName":
-                    task_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskContent":
-                    task_content = data.get("#text", "-")
-
-        if isinstance(task_content, dict):
-            task_content_json = xmltodict.parse(task_content)
-            if isinstance(task_content_json, dict):
-                task_root = task_content_json.get("Task")
-                if isinstance(task_root, dict):
-                    action = task_root.get("Actions")
-                    if isinstance(action, dict):
-                        execc = action.get("Exec")
-                        if isinstance(execc, dict):
-                            command = execc.get("Command", "-")
-                            arguments = execc.get("Arguments", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          action_type, self.separator,
-                                                          user_name, self.separator,
-                                                          task_name, self.separator,
-                                                          command, self.separator,
-                                                          arguments
-                                                          )
-            self.task_scheduler_file_csv.write(res)
-            self.task_scheduler_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "action_type": action_type,
-                "user_name": user_name,
-                "task_name": task_name,
-                "command": command,
-                "arguments": arguments,
-                "Artefact": "EVTX_TASK_SCHEDULER"
-            }
-            json.dump(res, self.task_scheduler_file_json)
-            self.task_scheduler_file_json.write('\n')
-
-    def parse_task_scheduler_from_xml_security_update(self, event):
-
-        """
-        Function to parse task scheduler log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
+    def parse_remote_rdp_evtx_from_xml(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": "1149",
+            "user_name": event.get("username", "-"), "ip_addr": event.get("ip_address", "-")
+        }
+        self._write_csv_row("remote_rdp", data_dict)
 
-        event_code = event.get("event_identifier")
-        user_name = "-"
-        task_name = "-"
-        command = "-"
-        arguments = "-"
-        action_type = "TaskUpdated"
-        task_content = {}
+    def parse_rdp_local(self, event):
+        if str(event.get("event_identifier")) in ["21", "24", "25", "39", "40"]:
+            self.parse_rdp_local_evtx_from_xml(event)
 
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "SubjectUserName":
-                    user_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskName":
-                    task_name = data.get("#text", "-")
-                elif data.get("@Name", "") == "TaskContentNew":
-                    task_content = data.get("#text", {})
+    def parse_rdp_local_evtx_from_xml(self, event):
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        event_code = str(event.get("event_identifier", "-"))
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = evt_as_json.get("Event", {}).get("UserData", {}).get("EventXML", {})
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        task_content_json = xmltodict.parse(task_content)
-        if isinstance(task_content_json, dict):
-            task_root = task_content_json.get("Task")
-            if isinstance(task_root, dict):
-                action = task_root.get("Actions")
-                if isinstance(action, dict):
-                    execc = action.get("Exec")
-                    if isinstance(execc, dict):
-                        command = execc.get("Command", "-")
-                        arguments = execc.get("Arguments", "-")
+        reason_map = {"21": "AuthSuccess", "24": "UserDisconnected", "25": "UserReconnected",
+                      "39": "UserHasBeenDisconnected", "40": "UserHasBeenDisconnected"}
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          action_type, self.separator,
-                                                          user_name, self.separator,
-                                                          task_name, self.separator,
-                                                          command, self.separator,
-                                                          arguments
-                                                          )
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event_code,
+            "user_name": data.get("User", "-"), "ip_addr": data.get("Address", "-"),
+            "session_id": data.get("SessionID", "-"), "source": data.get("Source", '-'),
+            "target_session": data.get("Target", "-"), "reason_n": data.get("Reason", "-"),
+            "reason": reason_map.get(event_code, "-")
+        }
+        self._write_csv_row("local_rdp", data_dict)
 
-            self.task_scheduler_file_csv.write(res)
-            self.task_scheduler_file_csv.write('\n')
+    def parse_wmi(self, event):
+        event_code = str(event.get("event_identifier"))
+        if event_code == "5861":
+            self.parse_wmi_evtx_from_xml(event)
+        elif event_code == "5858":
+            self.parse_wmi_failure_from_xml(event)
 
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "action_type": action_type,
-                "user_name": user_name,
-                "task_name": task_name,
-                "command": command,
-                "arguments": arguments,
-                "Artefact": "EVTX_TASK_SCHEDULER"
-            }
-            json.dump(res, self.task_scheduler_file_json)
-            self.task_scheduler_file_json.write('\n')
+    def parse_wmi_evtx_from_xml(self, event):
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            event_data = evt_as_json.get("Event", {}).get("UserData", {})
+            op_name = next(iter(event_data), None)
+            if not op_name: return
+            op_dict = event_data.get(op_name, {})
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-    #  ----------------------------------------  PowerShell ---------------------------------------------
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "operation_name": op_name, "user": op_dict.get("User", "-"),
+            "namespace": op_dict.get("NamespaceName", "-"), "consumer": op_dict.get("CONSUMER", "-"),
+            "cause": op_dict.get("PossibleCause", "-").replace("\n", " "),
+            "query": op_dict.get("Query", "-").replace("\n", " ")
+        }
+        self._write_csv_row("wmi", data_dict)
+
+    def parse_wmi_failure_from_xml(self, event):
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            event_data = evt_as_json.get("Event", {}).get("UserData", {})
+            op_name = next(iter(event_data), None)
+            if not op_name: return
+            op_dict = event_data.get(op_name, {})
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
+
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "operation_name": op_name, "user": op_dict.get("User", "-"),
+            "namespace": op_dict.get("NamespaceName", "-"), "consumer": op_dict.get("CONSUMER", "-"),
+            "cause": op_dict.get("PossibleCause", "-").replace("\n", " "),
+            "operation": op_dict.get("Operation", "-").replace("\n", " ")
+        }
+        self._write_csv_row("wmi_failure", data_dict)
+
     def parse_powershell(self, event):
-        """
-        Main function to parse powershell type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
-        event_code = event.get("event_identifier")
-        if self.powershell_script_file_csv or self.powershell_script_file_json:
-            if str(event_code) in ["4104", "4105", "4106"]:
-                self.parse_powershell_script_from_xml(event)
-        if self.powershell_file_csv or self.powershell_file_json:
-            if str(event_code) in ["400", "600"]:
-                self.parse_powershell_cmd_from_xml(event)
+        event_code = str(event.get("event_identifier"))
+        if event_code in ["4104", "4105", "4106"]: self.parse_powershell_script_from_xml(event)
+        if event_code in ["400", "600"]: self.parse_powershell_cmd_from_xml(event)
 
     def parse_powershell_script_from_xml(self, event):
-        """
-        Function to parse powershell script execution log type.
-        It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        path_to_script = "-"
-        script_block_text = "-"
-
-        for data in event_data:
-            if isinstance(data, dict):
-                if data.get("@Name", "") == "Path":
-                    path_to_script = data.get("#text", "-")
-
-                elif data.get("@Name", "") == "ScriptBlockText":
-                    script_block_text = str(data.get("#text", "-")).replace("\n", "")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              event_code, self.separator,
-                                              path_to_script, self.separator,
-                                              script_block_text)
-            self.powershell_script_file_csv.write(res)
-            self.powershell_script_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "path_to_script": path_to_script,
-                "script_block_text": script_block_text,
-                "Artefact": "EVTX_POWERSHELL"
-            }
-
-            json.dump(res, self.powershell_script_file_json)
-            self.powershell_script_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "path_to_script": data.get("Path", "-"), "script_block_text": data.get("ScriptBlockText", "-")
+        }
+        self._write_csv_row("script_powershell", data_dict)
 
     def parse_powershell_cmd_from_xml(self, event):
-        """
-        Function to parse powershell cmdu execution log type. It will parse and write results to the appropriate
-        result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-        cmdu = "-"
+        cmd = "-"
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
+            for line in event_data:
+                if "HostApplication=" in line:
+                    for part in line.split("\n"):
+                        if "HostApplication" in part:
+                            cmd = part.split("HostApplication=")[1].strip()
+                            break
+        except (xmltodict.expat.ExpatError, IndexError):
+            pass
 
-        for line in event_data:
-            if "HostApplication=" in line:
-                l2 = line.split("\n")
-                for i in l2:
-                    if "HostApplication" in i:
-                        cmdu = i.split("HostApplication=")[1].replace("\n", " ").replace("\t", "").replace("\r", "")
+        data_dict = {"Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"), "cmd": cmd}
+        self._write_csv_row("powershell", data_dict)
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                          ts_time, self.separator,
-                                          event_code, self.separator,
-                                          cmdu)
-            self.powershell_file_csv.write(res)
-            self.powershell_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "cmdu": cmdu,
-                "Artefact": "POWERSHELL"
-            }
-
-            json.dump(res, self.powershell_file_json)
-            self.powershell_file_json.write('\n')
-
-    #  ----------------------------------------  App Experience ---------------------------------------------
     def parse_app_experience(self, event):
-        """
-        Main function to parse application experience type logs
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        if self.app_exp_file_csv or self.app_exp_file_json:
-            if str(event_code) in ["500", "505", "17"]:
-                self.parse_app_experience_from_xml(event)
+        if str(event.get("event_identifier")) in ["500", "505", "17"]:
+            self.parse_app_experience_from_xml(event)
 
     def parse_app_experience_from_xml(self, event):
-        """
-        Function to parse application experience log type.
-        It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = evt_as_json.get("Event", {}).get("UserData", {}).get("CompatibilityFixEvent", {})
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-        fix_name = evt_as_json.get("Event", {}).get("UserData", {}).get("CompatibilityFixEvent", {}).get("FixName")
-        exe_path = evt_as_json.get("Event", {}).get("UserData", {}).get("CompatibilityFixEvent", {}).get("ExePath")
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "event_code": event.get("event_identifier"),
+            "FixName": data.get("FixName", "-"), "ExePath": data.get("ExePath", "-")
+        }
+        self._write_csv_row("app_exp", data_dict)
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              event_code, self.separator,
-                                              fix_name, self.separator,
-                                              exe_path)
-            self.app_exp_file_csv.write(res)
-            self.app_exp_file_csv.write('\n')
+    def parse_windows_defender(self, event):
+        event_code = str(event.get("event_identifier"))
+        if event_code in ["1116", "1117", "1118", "1119"]:
+            self.parse_windef_from_xml(event)
 
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "fix_name": fix_name,
-                "exe_path": exe_path,
-                "Artefact": "APP_EXPERIENCE"
-            }
+    def parse_windef_from_xml(self, event):
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
 
-            json.dump(res, self.app_exp_file_json)
-            self.app_exp_file_json.write('\n')
+        event_type = "Detection" if str(event.get("event_identifier")) == "1116" else "Action"
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "Event": f"{event.get('event_identifier')} - {event_type}",
+            "ThreatName": data.get("Threat Name", "-"), "Severity": data.get("Severity Name", "-"),
+            "User": data.get("Detection User", "-"), "ProcessName": data.get("Process Name", "-"),
+            "Path": data.get("Path", "-"), "Action": data.get("Action Name", "-")
+        }
+        self._write_csv_row("windefender", data_dict)
 
-    #  -------------------------------------------------------------  Hives --------------------------------------------
-
+    # --- HIVE PARSERS ---
     def parse_hives(self, line):
-        """
-        Main function to parse windows hive type artefact
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         hive_type = self.identify_artefact_by_parser_name(line)
+        if not hive_type: return
 
+        # Specific, high-volume artifacts
         if hive_type == "winreg-amcache":
-            if self.amcache_res_file_csv or self.amcache_res_file_json:
-                self.parse_amcache(line)
-
-        if hive_type == "winreg-appCompat":
-            if self.app_compat_res_file_csv or self.app_compat_res_file_json:
-                self.parse_app_compat_cache(line)
-
-        if hive_type == "winreg-windows_sam_users":
-            if self.sam_res_file_csv or self.sam_res_file_json:
-                self.parse_sam(line)
-
-        if hive_type == "winreg-userassist":
-            if self.user_assist_file_csv or self.user_assist_file_json:
-                self.parse_user_assist(line)
-
-        if hive_type == "winreg-mru":
-            if self.mru_res_file_csv or self.mru_res_file_json:
-                self.parse_mru(line)
-
-        if hive_type == "winreg-mru-shell_items":
-            if self.mru_res_file_csv or self.mru_res_file_json:
-                self.parse_mru_shell_item(line)
-
-        if hive_type == "winreg-mru-exe_shell_items_list":
-            if self.mru_res_file_csv or self.mru_res_file_json:
-                self.parse_mru_exe_shell_items_list(line)
-
-        if hive_type == "winreg-mru-listex_str":
-            if self.mru_res_file_csv or self.mru_res_file_json:
-                self.parse_mru_listex_str(line)
-
-        if hive_type == "winreg-mru-str_and_shellitem":
-            if self.mru_res_file_csv or self.mru_res_file_json:
-                self.parse_mru_listex_str_shellitem(line)
-
-        if hive_type == "winreg-windows-run":
-            if self.run_res_file_csv or self.run_res_file_json:
-                self.parse_run(line)
-
-        if hive_type == "winreg-windows_usb_devices":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_usb(line)
-
-        if hive_type == "winreg_default":
-            if 'HKEY_LOCAL_MACHINE\Software' in line.get("key_path") or 'HKEY_CURRENT_USER\Software' in line.get("key_path"):
-                self.parse_software(line)
-
-            if 'HKEY_CURRENT_USER\\Software\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache' in line.get("key_path") :
+            self.parse_amcache(line)
+        elif hive_type == "winreg-appCompat":
+            self.parse_app_compat_cache(line)
+        elif hive_type == "winreg-windows_sam_users":
+            self.parse_sam(line)
+        elif hive_type == "winreg-userassist":
+            self.parse_user_assist(line)
+        elif hive_type == "winreg-mru":
+            self.parse_mru(line)
+        elif hive_type == "winreg-windows-run":
+            self.parse_run(line)
+        elif hive_type == "winreg-windows_version":
+            self.parse_windows_version(line)
+        elif hive_type == "winreg-windows_task_cache":
+            self.parse_reg_task_cache(line)
+        # Generic registry key parsing
+        elif hive_type in self.common_reg_map:
+            self.parse_common_reg_key(line, self.common_reg_map[hive_type])
+        elif 'winreg_default' in hive_type:
+            if 'MuiCache' in line.get("key_path", ""):
                 self.parse_mui_cache(line)
+            # Add other winreg_default conditions here if necessary
 
-        if hive_type == "winreg-networks":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_network(line)
-
-        if hive_type == "winreg-windows_boot_execute":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_bootexec(line)
-
-        if hive_type == "winreg-windows_services":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_win_services(line)
-
-        if hive_type == "winreg-windows_shutdown":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_win_shutdown(line)
-
-        if hive_type == "winreg-windows_task_cache":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_task_cache(line)
-
-        if hive_type == "winreg-windows_timezone":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_timezone(line)
-
-        if hive_type == "winreg-winlogon":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_winlogon(line)
-
-        if hive_type == "winreg-windows_typed_urls":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_typed_url(line)
-
-        if hive_type == "winreg-explorer_mountpoints2":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_mountpoint(line)
-
-        if hive_type == "winreg-explorer_programscache":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_programscache(line)
-
-        if hive_type == "winreg-windows_version":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                self.parse_reg_version(line)
-
-        if hive_type == "winreg-msie_zone":
-            if self.common_reg_file_csv or self.common_reg_file_json:
-                #self.parse_reg_msie(line)
-                pass # Need better parsing and will flood output
-
-    def parse_reg_usb(self, event):
-        msg = event.get("message", "-").replace(
-            "[HKEY_LOCAL_MACHINE\System\ControlSet002\Enum\\USB]", "")
-        key = "USB"
+    def parse_common_reg_key(self, event, reg_type):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key , self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "USB_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_msie(self, event):
-        msg = event.get("settings", "-")
-        key = "MSIE"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "MSIE_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_network(self, event):
-        msg = event.get("message", "-")
-        key = "NETWORK"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "NETWORK_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_bootexec(self, event):
-        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\System\ControlSet001\Control\Session Manager]", "")
-        key = "BOOTEXEC"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "BOOTEXEC_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_win_services_leg(self, event):
-        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\System\\ControlSet001\\Services\\", "")
-        key = "WINSERVICES"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "WINSERVICES_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_win_services(self, event):
+        key_path = event.get("key_path", "-")
         values = event.get("values", [])
-        key = "WINSERVICE"
-        l_formated_value = []
-        if isinstance(values, list):
+
+        if isinstance(values, list) and values:
             for value in values:
-                if isinstance(value, dict):
-                    l_formated_value.append("{}:{}".format(value.get("name"), value.get("data")))
-
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator,
-                                          self.separator.join(l_formated_value))
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": values,
-                "Artefact": "WINSERVICES_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_win_shutdown(self, event):
-        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\System\\ControlSet002\\Control\\Windows]", "")
-        key = "WINSHUTDOWN"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "WINSHUTDOWN_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
+                details = f"{value.get('name', '')}: {value.get('data', '')}"
+                data_dict = {"Date": ts_date, "Time": ts_time, "type": reg_type, "key_path": key_path,
+                             "details": details}
+                self._write_csv_row("common_reg", data_dict)
+        else:
+            details = event.get("message", "-").split("]")[-1].strip()
+            data_dict = {"Date": ts_date, "Time": ts_time, "type": reg_type, "key_path": key_path, "details": details}
+            self._write_csv_row("common_reg", data_dict)
 
     def parse_reg_task_cache(self, event):
-        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache]", "")
-        key = "TASKCACHE"
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "TASKCACHE_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_timezone(self, event):
-        msg = event.get("message", "-").replace(
-            "[HKEY_LOCAL_MACHINE\\System\\ControlSet002\\Control\\TimeZoneInformation]", "").replace(
-            "[HKEY_LOCAL_MACHINE\\System\\ControlSet002\\Control\\TimeZoneInformation]", "")
-        key = "TIMEZONE"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "TIMEZONE_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_typed_url(self, event):
-        msg = event.get("entries", "-")
-        key = "TYPEDURL"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "TYPEDURL_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_winlogon(self, event):
-        msg = event.get("message", "-").replace("[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon]", "")
-        key = "WINLOGON"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "WINLOGON_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_mountpoint(self, event):
-        msg = event.get("message", "-").replace("[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2]", "")
-        key = "MOUNTPOINT"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "MOUNTPOINT_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_programscache(self, event):
-        msg = event.get("message", "-").replace("[HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage]", "")
-        key = "STARTPAGE"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, key, self.separator, msg)
-            self.common_reg_file_csv.write(res)
-            self.common_reg_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": msg,
-                "Artefact": "STARTPAGE_REGISTRY"
-            }
-            json.dump(res, self.common_reg_file_json)
-            self.common_reg_file_json.write('\n')
-
-    def parse_reg_version(self, event):
+        key_path = event.get("key_path", "-")
         values = event.get("values", [])
-        l_formated_entries = []
+
+        details_list = []
         if isinstance(values, list):
             for value in values:
-                if isinstance(value, dict):
-                    entry = "{}:    {}".format(value.get("name"), value.get("data"))
-                    l_formated_entries.append(entry)
+                details_list.append(f"{value.get('name', '')}: {value.get('data', '')}")
 
+        details_str = ", ".join(details_list) if details_list else "-"
+
+        if details_str == "-":
+            message = event.get("message", "-")
+            prefix_to_remove = "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache]"
+            details_str = message.replace(prefix_to_remove, "").strip() if prefix_to_remove in message else message
+
+        data_dict = {"Date": ts_date, "Time": ts_time, "type": "TASKCACHE", "key_path": key_path,
+                     "details": details_str}
+        self._write_csv_row("common_reg", data_dict)
+
+    def parse_windows_version(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            for f_entry in l_formated_entries:
-                self.windows_general_info_csv.write(f_entry)
-                self.windows_general_info_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "entry": values,
-                "Artefact": "VERSION_REGISTRY"
-            }
-            json.dump(res, self.windows_general_info_json)
-            self.windows_general_info_json.write('\n')
-
-    def parse_software(self, event):
-        """
-        Function to parse software reg key entries.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        if "Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU" in event.get("key_path", "-"):
-            self.get_mru_runbox_cmd(event)
-
-    def get_mru_runbox_cmd(self, event):
-        runcmd = event.get("message", "-").replace(
-            "[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU]", "")
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, runcmd)
-            self.mru_res_file_csv.write(res)
-            self.mru_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "cmd": runcmd,
-                "Artefact": "RunMRU"
-            }
-            json.dump(res, self.mru_res_file_json)
-            self.mru_res_file_json.write('\n')
+        values = event.get("values", [])
+        if isinstance(values, list):
+            for value in values:
+                data_dict = {
+                    "Date": ts_date, "Time": ts_time,
+                    "Key": value.get("name", "-"),
+                    "Value": value.get("data", "-")
+                }
+                self._write_csv_row("windows_info", data_dict)
 
     def parse_amcache(self, event):
-        """
-        Function to parse amcache hive type.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         full_path = event.get("full_path", "-")
-        if full_path != "-":
-            name = full_path.split("\\")[-1]
-            ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-            identifier = event.get("program_identifier", "-")
-            sha256_hash = event.get("sha256_hash", "-")
+        if full_path == "-": return
 
-            if self.output_type in ["csv", "all"]:
-                # res = "{}{}{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, name, self.separator, identifier)
-                res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  name, self.separator,
-                                                  full_path, self.separator,
-                                                  identifier, self.separator,
-                                                  sha256_hash)
-                self.amcache_res_file_csv.write(res)
-                self.amcache_res_file_csv.write('\n')
-
-            if self.output_type in ["json", "all"]:
-                res = {
-                    "caseName": self.case_name,
-                    "workstation_name": self.machine_name,
-                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                    "name": name,
-                    "fullPath": full_path,
-                    "identifier": identifier,
-                    "hash": sha256_hash,
-                    "Artefact": "AMCACHE"
-                }
-                json.dump(res, self.amcache_res_file_json)
-                self.amcache_res_file_json.write('\n')
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "Name": os.path.basename(full_path),
+            "FullPath": full_path, "id": event.get("program_identifier", "-"),
+            "Hash": event.get("sha256_hash", "-")
+        }
+        self._write_csv_row("amcache", data_dict)
 
     def parse_app_compat_cache(self, event):
-        """
-        Function to parse app compat hive type.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         full_path = event.get("path", "-")
-        if full_path != "-":
-            name = full_path.split("\\")[-1]
-            ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-            sha256_hash = event.get("sha256_hash", "-")
+        if full_path == "-": return
 
-            if self.output_type in ["csv", "all"]:
-                res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  name, self.separator,
-                                                  full_path, self.separator,
-                                                  sha256_hash)
-                self.app_compat_res_file_csv.write(res)
-                self.app_compat_res_file_csv.write('\n')
-
-            if self.output_type in ["json", "all"]:
-                res = {
-                    "caseName": self.case_name,
-                    "workstation_name": self.machine_name,
-                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                    "name": name,
-                    "identifier": full_path,
-                    "hash": sha256_hash,
-                    "Artefact": "APP_COMPAT_CACHE"
-                }
-                json.dump(res, self.app_compat_res_file_json)
-                self.app_compat_res_file_json.write('\n')
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "Name": os.path.basename(full_path),
+            "FullPath": full_path, "Hash": event.get("sha256_hash", "-")
+        }
+        self._write_csv_row("appcompat", data_dict)
 
     def parse_sam(self, event):
-        """
-        Function to parse sam hive type.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        user_name = event.get("username", "-")
-        login_count = event.get("login_count", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                          ts_time, self.separator,
-                                          user_name, self.separator,
-                                          login_count)
-            self.sam_res_file_csv.write(res)
-            self.sam_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "user_name": user_name,
-                "login_count": login_count,
-                "Artefact": "SAM"
-            }
-            json.dump(res, self.sam_res_file_json)
-            self.sam_res_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "username": event.get("username", "-"),
+            "login_count": event.get("login_count", "-")
+        }
+        self._write_csv_row("sam", data_dict)
 
     def parse_user_assist(self, event):
-        """
-        Function to user assist artefact.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        value_name = event.get("value_name", "-")
-        application_focus_count = event.get("application_focus_count", "-")
-        application_focus_duration = event.get("application_focus_duration", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              value_name, self.separator,
-                                              application_focus_count, self.separator,
-                                              application_focus_duration)
-            self.user_assist_file_csv.write(res)
-            self.user_assist_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "value_name": value_name,
-                "application_focus_count": application_focus_count,
-                "application_focus_duration": application_focus_duration,
-                "Artefact": "USER_ASSIST"
-            }
-            json.dump(res, self.user_assist_file_json)
-            self.user_assist_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "valueName": event.get("value_name", "-"),
+            "appFocus": event.get("application_focus_count", "-"),
+            "appDuration": event.get("application_focus_duration", "-")
+        }
+        self._write_csv_row("userassist", data_dict)
 
     def parse_mru(self, event):
-        """
-        Function to parse mru artefact.
-        It will parse and write results to the appr)à   opriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        try:
-            if event.get("parser") == "winreg/bagmru/shell_items":
-                shell_item_path = event.get("shell_item_path", "-")
-                name = event.get("name", "-")
+        entries = event.get("entries", event.get("shell_item_path", "-"))
+        if not isinstance(entries, list):
+            entries = [str(entries)]
 
-                if self.output_type in ["csv", "all"]:
-                    res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  name, self.separator,
-                                                  shell_item_path)
-                    self.mru_res_file_csv.write(res)
-                    self.mru_res_file_csv.write('\n')
-
-                if self.output_type in ["json", "all"]:
-                    res = {
-                        "caseName": self.case_name,
-                        "workstation_name": self.machine_name,
-                        "timestamp": "{}T{}".format(ts_date, ts_time),
-                        "name": name,
-                        "shell_item_path": shell_item_path,
-                        "Artefact": "MRU"
-                    }
-                    json.dump(res, self.mru_res_file_json)
-                    self.mru_res_file_json.write('\n')
-
-            elif event.get("entries"):
-                entries = event.get("entries")
-                if type(entries) == list:
-                    for entrie_item in entries:
-                        splited_entrie = entrie_item.split("Index:")
-                        for entrie in splited_entrie:
-                            header = r'( \d{1,9} \[MRU Value \d{1,9}\]: Shell item path:)|(<UNKNOWN: .*?>)|((\d|[a-z]){1,9} \[MRU Value .{1,9}\]:)'
-                            cleaned = re.sub(header, '', entrie).strip()
-                            if cleaned:
-                                if self.output_type in ["csv", "all"]:
-                                    res = "{}{}{}{}-{}{}".format(ts_date, self.separator,
-                                                                 ts_time, self.separator,
-                                                                 self.separator,
-                                                                 cleaned)
-                                    self.mru_res_file_csv.write(res)
-                                    self.mru_res_file_csv.write('\n')
-
-                                if self.output_type in ["json", "all"]:
-                                    res = {
-                                        "caseName": self.case_name,
-                                        "workstation_name": self.machine_name,
-                                        "timestamp": "{}T{}".format(ts_date, ts_time),
-                                        "mru_entrie": cleaned,
-                                        "Artefact": "MRU"
-                                    }
-                                    json.dump(res, self.mru_res_file_json)
-                                    self.mru_res_file_json.write('\n')
-                else:
-                    splited_entrie = entries.split("Index:")
-                    for entrie in splited_entrie:
-                        header = r'( \d{1,9} \[MRU Value \d{1,9}\]: Shell item path:)|(<UNKNOWN: .*?>)|((\d|[a-z]){1,9} \[MRU Value .{1,9}\]:)'
-                        cleaned = re.sub(header, '', entrie).strip()
-                        if cleaned:
-                            if self.output_type in ["csv", "all"]:
-                                res = "{}{}{}{}-{}{}".format(ts_date, self.separator,
-                                                             ts_time, self.separator,
-                                                             self.separator,
-                                                             cleaned)
-                                self.mru_res_file_csv.write(res)
-                                self.mru_res_file_csv.write('\n')
-
-                            if self.output_type in ["json", "all"]:
-                                res = {
-                                    "caseName": self.case_name,
-                                    "workstation_name": self.machine_name,
-                                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                                    "mru_entrie": cleaned,
-                                    "Artefact": "MRU"
-                                }
-                                json.dump(res, self.mru_res_file_json)
-                                self.mru_res_file_json.write('\n')
-        except:
-            print("Error parsing MRU entries")
-            print(traceback.format_exc())
-
-    def parse_mru_shell_item(self, event):
-        """
-        Function to parse mru artefact.
-        It will parse and write results to the appr)à   opriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        try:
-            shell_item_path = event.get("shell_item_path", "-")
-            name = event.get("name", "-")
-            type_reg = "MRUSHELLITEM"
-            if self.output_type in ["csv", "all"]:
-                res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  type_reg, self.separator,
-                                                  name, self.separator,
-                                                  shell_item_path)
-                self.mru_res_file_csv.write(res)
-                self.mru_res_file_csv.write('\n')
-
-            if self.output_type in ["json", "all"]:
-                res = {
-                    "caseName": self.case_name,
-                    "workstation_name": self.machine_name,
-                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                    "name": name,
-                    "shell_item_path": shell_item_path,
-                    "Artefact": "MRU"
-                }
-                json.dump(res, self.mru_res_file_json)
-                self.mru_res_file_json.write('\n')
-
-        except:
-            print("Error parsing MRU SHELL ITEM entries")
-            print(traceback.format_exc())
-
-    def parse_mru_exe_shell_items_list(self, event):
-        """
-        Function to parse mru artefact.
-        It will parse and write results to the appr)à   opriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        try:
-            entries = event.get("entries", "-")
-            name = event.get("name", "-")
-            type_reg = "MRUSHELLITEMEXE"
-            if isinstance(entries, list):
-                for entry in entries:
-                    if self.output_type in ["csv", "all"]:
-                        res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          type_reg, self.separator,
-                                                          name, self.separator,
-                                                          entry)
-                        self.mru_res_file_csv.write(res)
-                        self.mru_res_file_csv.write('\n')
-
-                    if self.output_type in ["json", "all"]:
-                        res = {
-                            "caseName": self.case_name,
-                            "workstation_name": self.machine_name,
-                            "timestamp": "{}T{}".format(ts_date, ts_time),
-                            "name": name,
-                            "entry": entry,
-                            "Artefact": "MRU"
-                        }
-                        json.dump(res, self.mru_res_file_json)
-                        self.mru_res_file_json.write('\n')
-
-        except:
-            print("Error parsing MRU SHELL ITEM EXE entry")
-            print(traceback.format_exc())
-
-    def parse_mru_listex_str_shellitem(self, event):
-        """
-        Function to parse mru artefact.
-        It will parse and write results to the appr)à   opriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        try:
-            entries = event.get("entries", "-")
-            name = event.get("name", "-")
-            type_reg = "MRULISTEXSHELL"
-            if isinstance(entries, list):
-                for entry in entries:
-                    if self.output_type in ["csv", "all"]:
-                        res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          type_reg, self.separator,
-                                                          name, self.separator,
-                                                          entry)
-                        self.mru_res_file_csv.write(res)
-                        self.mru_res_file_csv.write('\n')
-
-                    if self.output_type in ["json", "all"]:
-                        res = {
-                            "caseName": self.case_name,
-                            "workstation_name": self.machine_name,
-                            "timestamp": "{}T{}".format(ts_date, ts_time),
-                            "name": name,
-                            "entry": entry,
-                            "Artefact": "MRU"
-                        }
-                        json.dump(res, self.mru_res_file_json)
-                        self.mru_res_file_json.write('\n')
-
-        except:
-            print("Error parsing MRU SHELL ITEM EXE entry")
-            print(traceback.format_exc())
-
-    def parse_mru_listex_str(self, event):
-        """
-        Function to parse mru artefact.
-        It will parse and write results to the appr)à   opriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        try:
-            entries = event.get("entries", "-")
-            name = event.get("name", "-")
-            type_reg = "MRULISTEX"
-            if isinstance(entries, list):
-                for entry in entries:
-                    if self.output_type in ["csv", "all"]:
-                        res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          type_reg, self.separator,
-                                                          name, self.separator,
-                                                          entry)
-                        self.mru_res_file_csv.write(res)
-                        self.mru_res_file_csv.write('\n')
-
-                    if self.output_type in ["json", "all"]:
-                        res = {
-                            "caseName": self.case_name,
-                            "workstation_name": self.machine_name,
-                            "timestamp": "{}T{}".format(ts_date, ts_time),
-                            "name": name,
-                            "entry": entry,
-                            "Artefact": "MRU"
-                        }
-                        json.dump(res, self.mru_res_file_json)
-                        self.mru_res_file_json.write('\n')
-
-        except:
-            print("Error parsing MRU SHELL ITEM EXE entry")
-            print(traceback.format_exc())
+        for entry in entries:
+            data_dict = {
+                "Date": ts_date, "Time": ts_time, "TYPE": event.get("parser", "N/A"),
+                "NAME": event.get("name", "-"), "entries": entry
+            }
+            self._write_csv_row("mru", data_dict)
 
     def parse_mui_cache(self, event):
-        """
-        Function to parse mru artefact.
-        It will parse and write results to the appr)à   opriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        try:
-            entries = event.get("values", "-")
-            type_reg = "MUICACHE"
-            if isinstance(entries, list):
-                for entry in entries:
-                    if isinstance(entry, dict):
-                        name = entry.get("name", "-")
-                        data = entry.get("data", "-")
-                        if self.output_type in ["csv", "all"]:
-                            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                              ts_time, self.separator,
-                                                              type_reg, self.separator,
-                                                              name, self.separator,
-                                                              data)
-                            self.mui_res_file_csv.write(res)
-                            self.mui_res_file_csv.write('\n')
-
-                        if self.output_type in ["json", "all"]:
-                            res = {
-                                "caseName": self.case_name,
-                                "workstation_name": self.machine_name,
-                                "timestamp": "{}T{}".format(ts_date, ts_time),
-                                "name": name,
-                                "data": data,
-                                "Artefact": "MUICACHE"
-                            }
-                            json.dump(res, self.mui_res_file_json)
-                            self.mui_res_file_json.write('\n')
-
-        except:
-            print("Error parsing MUI CACHE entry")
-            print(traceback.format_exc())
+        entries = event.get("values", [])
+        if isinstance(entries, list):
+            for entry in entries:
+                data_dict = {
+                    "Date": ts_date, "Time": ts_time, "type": "MUICACHE",
+                    "name": entry.get("name", "-"), "data": entry.get("data", "-")
+                }
+                self._write_csv_row("mui_cache", data_dict)
 
     def parse_run(self, event):
-        """
-        Function to parse run/RunOnce reg key entries.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        entries = event.get("entries", "-")
-
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        entries = event.get("entries", [])
         if entries:
             for entrie in entries:
-                if self.output_type in ["csv", "all"]:
-                    res = "{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              entrie)
-                    self.run_res_file_csv.write(res)
-                    self.run_res_file_csv.write('\n')
+                data_dict = {"Date": ts_date, "Time": ts_time, "entrie": entrie}
+                self._write_csv_row("run", data_dict)
 
-                if self.output_type in ["json", "all"]:
-                    res = {
-                        "caseName": self.case_name,
-                        "workstation_name": self.machine_name,
-                        "timestamp": "{}T{}".format(ts_date, ts_time),
-                        "run_entrie": entrie,
-                        "Artefact": "RUN_KEY"
-                    }
-                    json.dump(res, self.run_res_file_json)
-                    self.run_res_file_json.write('\n')
-
-    #  -------------------------------------------------------------  DB -----------------------------------------------
-
+    # --- DB PARSERS ---
     def parse_db(self, line):
-        """
-        Main function to parse db type artefact
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         db_type = self.identify_artefact_by_parser_name(line)
-        if db_type == "ff_history":
-            if self.ff_history_res_file_csv or self.ff_history_res_file_json:
-                self.parse_ff_history(line)
-        if db_type == "edge_history":
-            if self.ie_history_res_file_csv or self.ie_history_res_file_json:
-                self.parse_edge_history(line)
-        if db_type == "chrome_history":
-            if self.chrome_history_res_file_csv or self.chrome_history_res_file_json:
-                self.parse_chrome_history(line)
-
+        if not db_type:
+            return
         if db_type == "srum":
-            if self.srum_res_file_csv or self.srum_res_file_json:
-                self.parse_srum(line)
+            self.parse_srum(line)
+        elif "history" in db_type:
+            browser = db_type.split('_')[0]
+            self.parse_browser_history(line, browser)
 
     def parse_srum(self, event):
-        """
-        Function to parse srum artefact.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
-        description = event.get("message", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        data_dict = {"Date": ts_date, "Time": ts_time, "description": event.get("message", "-")}
+        self._write_csv_row("srum", data_dict)
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}".format(ts_date, self.separator,
-                                      ts_time, self.separator,
-                                      description)
-            self.srum_res_file_csv.write(res)
-            self.srum_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "description": description,
-                "Artefact": "SRUM"
-            }
-            json.dump(res, self.srum_res_file_json)
-            self.srum_res_file_json.write('\n')
-
-    def parse_ff_history(self, event):
-        """
-        Function to parse firefox history.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
-        url = event.get("url", "-")
-        visit_count = event.get("visit_count", "-")
-        visit_type = event.get("visit_type", "-")
-        is_typed = event.get("typed", "-")
-        from_visit = event.get("from_visit", "-")
-        data_type = event.get("data_type", "-")
+    def parse_browser_history(self, event, browser_name):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "browser": browser_name,
+            "type": event.get("data_type", "-"), "url": event.get("url", "-"),
+            "visit_count": event.get("visit_count", "-"), "visit_type": event.get("visit_type", "-"),
+            "isType": event.get("typed", "-"), "from_visit": event.get("from_visit", "-"),
+            "message": event.get("message", "-") if "autofill" in event.get("data_type", "") else "-"
+        }
+        self._write_csv_row("browser_history", data_dict)
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          data_type, self.separator,
-                                                          url, self.separator,
-                                                          visit_count, self.separator,
-                                                          visit_type, self.separator,
-                                                          is_typed, self.separator,
-                                                          from_visit)
-            self.ff_history_res_file_csv.write(res)
-            self.ff_history_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "data_type": data_type,
-                "url": url,
-                "visit_count": visit_count,
-                "visit_type": visit_type,
-                "is_typed": is_typed,
-                "from_visit": from_visit,
-                "Artefact": "FF_HISTORY"
-            }
-            json.dump(res, self.ff_history_res_file_json)
-            self.ff_history_res_file_json.write('\n')
-
-    def parse_chrome_history(self, event):
-        """
-        Function to parse firefox history.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
-        url = event.get("url", "-")
-        visit_count = event.get("visit_count", "-")
-        visit_type = event.get("visit_type", "-")
-        is_typed = event.get("typed", "-")
-        from_visit = event.get("from_visit", "-")
-        data_type = event.get("data_type", "-")
-
-        if "autofill" in event.get("data_type"):
-            mesg = event.get("message")
-        else :
-            mesg = "-"
-
-
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                              ts_time, self.separator,
-                                                              data_type, self.separator,
-                                                              url, self.separator,
-                                                              visit_count, self.separator,
-                                                              visit_type, self.separator,
-                                                              is_typed, self.separator,
-                                                              from_visit, self.separator,
-                                                              mesg)
-            self.chrome_history_res_file_csv.write(res)
-            self.chrome_history_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "data_type": data_type,
-                "url": url,
-                "visit_count": visit_count,
-                "visit_type": visit_type,
-                "is_typed": is_typed,
-                "from_visit": from_visit,
-                "Artefact": "CHROME_HISTORY"
-            }
-            json.dump(res, self.chrome_history_res_file_json)
-            self.chrome_history_res_file_json.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "data_type": data_type,
-                "url": url,
-                "visit_count": visit_count,
-                "visit_type": visit_type,
-                "is_typed": is_typed,
-                "from_visit": from_visit,
-                "Artefact": "CHROME_HISTORY"
-            }
-            json.dump(res, self.chrome_history_res_file_json)
-            self.chrome_history_res_file_json.write('\n')
-
-    def parse_edge_history(self, event):
-        """
-        Function to parse firefox history.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-
-        url = event.get("url", "-")
-        visit_count = event.get("visit_count", "-")
-        visit_type = event.get("visit_type", "-")
-        is_typed = event.get("typed", "-")
-        from_visit = event.get("from_visit", "-")
-        data_type = event.get("data_type", "-")
-
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          data_type, self.separator,
-                                                          url, self.separator,
-                                                          visit_count, self.separator,
-                                                          visit_type, self.separator,
-                                                          is_typed, self.separator,
-                                                          from_visit)
-            self.ie_history_res_file_csv.write(res)
-            self.ie_history_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "data_type": data_type,
-                "url": url,
-                "visit_count": visit_count,
-                "visit_type": visit_type,
-                "is_typed": is_typed,
-                "from_visit": from_visit,
-                "Artefact": "IE_HISTORY"
-            }
-            json.dump(res, self.ie_history_res_file_json)
-            self.ie_history_res_file_json.write('\n')
-
-    #  ------------------------------------------------------  Win Files -----------------------------------------------
-
+    # --- FILE PARSERS ---
     def parse_win_file(self, line):
-        """
-        Main function to parse windows type artefact
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
         file_type = self.identify_artefact_by_parser_name(line)
         if file_type == "prefetch":
-            if self.prefetch_res_file_csv or self.prefetch_res_file_json:
-                self.parse_prefetch(line)
-        if file_type == "lnk":
-            if self.lnk_res_file_csv or self.lnk_res_file_json:
-                self.parse_lnk(line)
+            self.parse_prefetch(line)
+        elif file_type == "lnk":
+            self.parse_lnk(line)
 
     def parse_prefetch(self, event):
-        """
-        Function to parse prefetch files.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        run_count = event.get("run_count", "-")
-        path_hints = event.get("path_hints", "-")
-        executable = event.get("executable", "-")
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              executable, self.separator,
-                                              path_hints, self.separator,
-                                              run_count)
-            self.prefetch_res_file_csv.write(res)
-            self.prefetch_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "executable": executable,
-                "path_hints": path_hints,
-                "run_count": run_count,
-                "Artefact": "PREFETCH"
-            }
-            json.dump(res, self.prefetch_res_file_json)
-            self.prefetch_res_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "name": event.get("executable", "-"),
+            "path": ", ".join(event.get("path_hints", [])), "nbExec": event.get("run_count", "-")
+        }
+        self._write_csv_row("prefetch", data_dict)
 
     def parse_lnk(self, event):
-        """
-        Function to parse lnk type artefact.
-        It will parse and write results to the appropriate result file.
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        description = event.get("description", "-")
-        working_directory = event.get("working_directory", "-")
-
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if description != "-" and working_directory != "-":
-            if self.output_type in ["csv", "all"]:
-                res = "{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                              ts_time, self.separator,
-                                              description, self.separator,
-                                              working_directory)
-                self.lnk_res_file_csv.write(res)
-                self.lnk_res_file_csv.write('\n')
+        if event.get("description", "-") != "-" and event.get("working_directory", "-") != "-":
+            data_dict = {
+                "Date": ts_date, "Time": ts_time, "description": event.get("description", "-"),
+                "working_dir": event.get("working_directory", "-")
+            }
+            self._write_csv_row("lnk", data_dict)
 
-            if self.output_type in ["json", "all"]:
-                res = {
-                    "caseName": self.case_name,
-                    "workstation_name": self.machine_name,
-                    "timestamp": "{}T{}".format(ts_date, ts_time),
-                    "description": description,
-                    "working_directory": working_directory,
-                    "Artefact": "LNK"
-                }
-                json.dump(res, self.lnk_res_file_json)
-                self.lnk_res_file_json.write('\n')
-
-    #  -------------------------------------------------------------  MFT --------------------------------------------
-
+    # --- MFT PARSERS ---
     def parse_mft(self, line):
-        """
-        Main function to parse windows mft
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        reg_ntfs = re.compile(r'NTFS')
-        if not self.config.get("mft", "") or not line:
-            return
         parser = line.get("parser")
-        if parser in ["usnjrnl"]:
+        if parser == "usnjrnl":
             self.parse_usnjrl(line)
-        elif parser in ["mft"]:
+        elif parser == "mft":
             self.parse_file_mft(line)
-        elif parser in ["filestat"] and re.search(reg_ntfs, json.dumps(line)):
+        elif parser == "filestat" and "NTFS" in str(line):
             self.parse_filestat(line)
 
-    # TODO: Improve name regex
     def parse_usnjrl(self, event):
-        """
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return:
-        """
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        msg = event.get("message")
-        file_name_re = re.compile(r'^(.{1,}\.){1,}(\w){1,3}')
-        file_name = re.search(file_name_re, msg)
-        update_reason_reg = re.compile(r'Update reason: (.*)')
-        update_reason = re.search(update_reason_reg, msg)
-        if update_reason:
-            try:
-                update_reason = update_reason.group(1).replace(',', '')
-            except:
-                update_reason = "noReason"
-        if file_name:
-            try:
-                file_name = file_name.group()
-            except:
-                pass
+        msg = event.get("message", "")
 
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  "USNJRNL", self.separator,
-                                                  "N/A", self.separator,
-                                                  update_reason, self.separator,
-                                                  file_name)
-            self.mft_res_file_csv.write(res)
-            self.mft_res_file_csv.write('\n')
+        file_name_match = re.search(r'^(.{1,}\.){1,}(\w){1,3}', msg)
+        reason_match = re.search(r'Update reason: (.*)', msg)
 
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "workstation_name": self.machine_name,
-                "message": msg,
-                "file_name": file_name,
-                "Artefact": "NTFS_USN"
-
-            }
-            json.dump(res, self.mft_res_file_json)
-            self.mft_res_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "source": "USNJRNL", "fileType": "N/A",
+            "action": reason_match.group(1).replace(',', '') if reason_match else "noReason",
+            "fileName": file_name_match.group() if file_name_match else msg
+        }
+        self._write_csv_row("mft", data_dict)
 
     def parse_filestat(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        file_name_path = event.get("filename")
-        file_type = event.get("file_entry_type")
-        action = event.get("timestamp_desc")
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                  ts_time, self.separator,
-                                                  'FILESTAT', self.separator,
-                                                  file_type, self.separator,
-                                                  action, self.separator,
-                                                  file_name_path)
-            self.mft_res_file_csv.write(res)
-            self.mft_res_file_csv.write('\n')
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time, ),
-                "workstation_name": self.machine_name,
-                "action": action,
-                "file_type": file_type,
-                "path": file_name_path,
-                "Artefact": "NTFS_FILESTAT"
-            }
-            json.dump(res, self.mft_res_file_json)
-            self.mft_res_file_json.write('\n')
+        data_dict = {
+            "Date": ts_date, "Time": ts_time, "source": 'FILESTAT',
+            "fileType": event.get("file_entry_type", "-"), "action": event.get("timestamp_desc", "-"),
+            "fileName": event.get("filename", "-")
+        }
+        self._write_csv_row("mft", data_dict)
 
     def parse_file_mft(self, event):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        action = event.get("timestamp_desc")
-        path_int = event.get("path_hints", [])
-        if isinstance(path_int, list):
-            for path in path_int:
-                if self.output_type in ["csv", "all"]:
-                    res = "{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                      ts_time, self.separator,
-                                                      "MFT", self.separator,
-                                                       action, self.separator,
-                                                       path)
+        action = event.get("timestamp_desc", "-")
+        path_hints = event.get("path_hints", [])
+        if isinstance(path_hints, list):
+            for path in path_hints:
+                data_dict = {
+                    "Date": ts_date, "Time": ts_time, "source": "MFT",
+                    "fileType": "N/A", "action": action, "fileName": path
+                }
+                self._write_csv_row("mft", data_dict)
 
-                    self.mft_res_file_csv.write(res)
-                    self.mft_res_file_csv.write('\n')
-
-                if self.output_type in ["json", "all"]:
-                    res = {
-                        "caseName": self.case_name,
-                        "timestamp": "{}T{}".format(ts_date, ts_time, ),
-                        "workstation_name": self.machine_name,
-                        "action": action,
-                        "file_type": file_type,
-                        "path": path,
-                        "Artefact": "NTFS_MFT"
-                    }
-                    json.dump(res, self.mft_res_file_json)
-                    self.mft_res_file_json.write('\n')
-
-    def parse_windows_defender(self, line):
-        """
-        Main function to parse windows defender logs
-        :param line: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        if not self.config.get("windefender", "") or not line:
-            return
-        event_code = str(line.get("event_identifier"))
-        if event_code in ["1116"]:
-            if self.windefender_res_file_csv or self.windefender_res_file_json:
-                self.parse_windef_detection_from_xml(line)
-        if event_code in ["1117", "1118", "1119"]:
-            if self.windefender_res_file_csv or self.windefender_res_file_json:
-                self.parse_windef_action_from_xml(line)
-        if event_code in ["1006"]:
-            if self.windefender_res_file_csv or self.windefender_res_file_json:
-                pass
-                # self.parse_windef_detection_from_xml_legacy(line)
-        if event_code in ["1007"]:
-            if self.windefender_res_file_csv or self.windefender_res_file_json:
-                pass
-                # self.parse_windef_action_from_xml_legacy(line)
-
-    def parse_windef_detection_from_xml(self, event):
-        """
-        Function to parse windefender detection log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "1116 - Detection"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        threat_name = "-"
-        severity = "-"
-        process_name = "-"
-        detection_user = "-"
-        path = "-"
-        action = "-"
-
-        for data in event_data:
-            if data.get("@Name", "") == "Action Name":
-                action = data.get("#text", "-")
-            if data.get("@Name", "") == "Threat Name":
-                threat_name = data.get("#text", "-")
-            if data.get("@Name", "") == "Severity Name":
-                severity = data.get("#text", "-")
-            elif data.get("@Name", "") == "Process Name":
-                process_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "Detection User":
-                detection_user = data.get("#text", "-")
-            elif data.get("@Name", "") == "Path":
-                path = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                              ts_time, self.separator,
-                                                              event_code, self.separator,
-                                                              threat_name, self.separator,
-                                                              severity, self.separator,
-                                                              detection_user, self.separator,
-                                                              process_name, self.separator,
-                                                              path, self.separator,
-                                                              action)
-            self.windefender_res_file_csv.write(res)
-            self.windefender_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "threat_name": threat_name,
-                "severity": severity,
-                "detection_user": detection_user,
-                "process_name": process_name,
-                "path": path,
-                "action": action,
-                "Artefact": "EVTX_WINDOWS_DEFENDER"
-            }
-            json.dump(res, self.windefender_res_file_json)
-            self.windefender_res_file_json.write('\n')
-
-    def parse_windef_action_from_xml(self, event):
-        """
-        Function to parse windefender action log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        evt_code = str(event.get("event_identifier"))
-        event_code = "{} - Action".format(evt_code)
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        threat_name = "-"
-        severity = "-"
-        process_name = "-"
-        detection_user = "-"
-        path = "-"
-        action = "-"
-
-        for data in event_data:
-            if data.get("@Name", "") == "Action Name":
-                action = data.get("#text", "-")
-            if data.get("@Name", "") == "Threat Name":
-                threat_name = data.get("#text", "-")
-            if data.get("@Name", "") == "Severity Name":
-                severity = data.get("#text", "-")
-            elif data.get("@Name", "") == "Process Name":
-                process_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "Detection User":
-                detection_user = data.get("#text", "-")
-            elif data.get("@Name", "") == "Path":
-                path = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          threat_name, self.separator,
-                                                          severity, self.separator,
-                                                          detection_user, self.separator,
-                                                          process_name, self.separator,
-                                                          action)
-            self.windefender_res_file_csv.write(res)
-            self.windefender_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "threat_name": threat_name,
-                "severity": severity,
-                "detection_user": detection_user,
-                "process_name": process_name,
-                "path": path,
-                "action": action,
-                "Artefact": "EVTX_WINDOWS_DEFENDER"
-            }
-            json.dump(res, self.windefender_res_file_json)
-            self.windefender_res_file_json.write('\n')
-
-    def parse_windef_detection_from_xml_legacy(self, event):
-        """
-        Function to parse windefender detection log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "1006"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        threat_name = "-"
-        severity = "-"
-        process_name = "-"
-        detection_user = "-"
-        path = "-"
-        action = "-"
-
-        for data in event_data:
-            if data.get("@Name", "") == "Action Name":
-                action = data.get("#text", "-")
-            if data.get("@Name", "") == "Threat Name":
-                threat_name = data.get("#text", "-")
-            if data.get("@Name", "") == "Severity Name":
-                severity = data.get("#text", "-")
-            elif data.get("@Name", "") == "Process Name":
-                process_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "Detection User":
-                detection_user = data.get("#text", "-")
-            elif data.get("@Name", "") == "Path":
-                path = data.get("#text", "-")
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          threat_name, self.separator,
-                                                          severity, self.separator,
-                                                          detection_user, self.separator,
-                                                          process_name, self.separator,
-                                                          action)
-            self.windefender_res_file_csv.write(res)
-            self.windefender_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "threat_name": threat_name,
-                "severity": severity,
-                "detection_user": detection_user,
-                "process_name": process_name,
-                "path": path,
-                "action": action,
-                "Artefact": "EVTX_WINDOWS_DEFENDER"
-            }
-            json.dump(res, self.logon_res_file_json)
-            self.windefender_res_file_json.write('\n')
-
-    def parse_windef_action_from_xml_legacy(self, event):
-        """
-        Function to parse windefender action log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = "1117"
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        evt_as_xml = event.get("xml_string")
-        evt_as_json = xmltodict.parse(evt_as_xml)
-        event_data = evt_as_json.get("Event", {}).get("EventData", {}).get("Data", [])
-
-        threat_name = "-"
-        severity = "-"
-        process_name = "-"
-        detection_user = "-"
-        path = "-"
-        action = "-"
-
-        for data in event_data:
-            if data.get("@Name", "") == "Action Name":
-                action = data.get("#text", "-")
-            if data.get("@Name", "") == "Threat Name":
-                threat_name = data.get("#text", "-")
-            if data.get("@Name", "") == "Severity Name":
-                severity = data.get("#text", "-")
-            elif data.get("@Name", "") == "Process Name":
-                process_name = data.get("#text", "-")
-            elif data.get("@Name", "") == "Detection User":
-                detection_user = data.get("#text", "-")
-            elif data.get("@Name", "") == "Path":
-                path = data.get("#text", "-")
-
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}".format(ts_date, self.separator,
-                                                          ts_time, self.separator,
-                                                          event_code, self.separator,
-                                                          threat_name, self.separator,
-                                                          severity, self.separator,
-                                                          detection_user, self.separator,
-                                                          process_name, self.separator,
-                                                          action)
-            self.windefender_res_file_csv.write(res)
-            self.windefender_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "threat_name": threat_name,
-                "severity": severity,
-                "detection_user": detection_user,
-                "process_name": process_name,
-                "path": path,
-                "action": action,
-                "Artefact": "EVTX_WINDOWS_DEFENDER"
-            }
-            json.dump(res, self.windefender_res_file_json)
-            self.windefender_res_file_json.write('\n')
-
-    def parse_windows_startup_shutdown(self, event):
-        """
-        Function to parse windefender detection log type. It will parse and write results to the appropriate result file.
-        The function will get the interesting information from the xml string
-        :param event: (dict) dict containing one line of the plaso timeline,
-        :return: None
-        """
-        event_code = event.get("event_identifier")
-        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
-        if event_code == 4608:
-            msg = "WINDOWS STARTUP"
-        elif event_code == 4609:
-            msg = "WINDOWS SHUTDOWN"
-        else:
-            msg = "-"
-        if self.output_type in ["csv", "all"]:
-            res = "{}{}{}{}{}".format(ts_date, self.separator, ts_time, self.separator, msg)
-            self.windows_start_stop_res_file_csv.write(res)
-            self.windows_start_stop_res_file_csv.write('\n')
-
-        if self.output_type in ["json", "all"]:
-            res = {
-                "caseName": self.case_name,
-                "workstation_name": self.machine_name,
-                "timestamp": "{}T{}".format(ts_date, ts_time),
-                "eventCode": event_code,
-                "action": msg,
-                "Artefact": "EVTX_SECURITY"
-            }
-            json.dump(res, self.windows_start_stop_res_file_json)
-            self.windows_start_stop_res_file_json.write('\n')
-
-    def list_files_recursive(self, folder_path, glob_pattern):
-        l_file = []
-        path_folder = pathlib.Path(folder_path)
-        for item in path_folder.rglob(glob_pattern):
-            if item.is_file():
-                l_file.append(item)
-        return l_file
-
-    def clean_duplicates(self, dir_to_clean):
-
-        """
-        To clean duplicates line in file
-        :return:
-        """
-        try:
-            l_file = self.list_files_recursive(dir_to_clean, "*")
-            for file in l_file:
-                self.clean_duplicate_in_file(file)
-        except:
-            print(traceback.format_exc())
-
-    def clean_duplicate_in_file(self, file):
-
-        seen_lines = set()
-        l_temp = []
-
-        with open(file, 'r') as f:
-            for line in f:
-                if line not in seen_lines:
-                    seen_lines.add(line)
-                    l_temp.append(line)
-
-        with open(file, 'w') as f:
-            f.writelines(l_temp)
+    def _write_csv_row(self, artifact_key, data_dict):
+        """A helper function to write a data dictionary to the correct CSV file."""
+        headers = self.csv_headers.get(artifact_key, [])
+        row_data = [data_dict.get(h, "-") for h in headers]
+        writer = self.get_csv_writer(artifact_key, delimiter=self.separator)
+        if writer:
+            writer.writerow(row_data)
 
     def create_timeline(self):
-        timeline = []
-        for file in self.list_files_recursive(self.work_dir, "*.csv"):
-            try:
-                with open(file) as f:
-                    next(f)
-                    for line in f:
-                        f_line = self.format_line(line, file.stem)
-                        if f_line:
-                            timeline.append(f_line)
-            except StopIteration:
-                print("stop iteration in file {}, skipping".format(str(file)))
-            except:
-                print(traceback.format_exc())
+        """
+        Merges all generated CSV files into a single, sorted timeline.
+        """
+        print("Creating final timeline...")
+        timeline_data = []
+        for root, _, files in os.walk(self.csv_dir):
+            for file in files:
+                if file.endswith('.csv'):
+                    filepath = os.path.join(root, file)
+                    artifact_name = Path(filepath).stem
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            reader = csv.reader(f, delimiter=self.separator)
+                            header = next(reader)  # Read header
+                            for row in reader:
+                                # Ensure row has at least date and time
+                                if len(row) >= 2:
 
-        self.timeline_file_csv = self.initialise_result_file_csv(self.l_csv_header_timeline, "timeline")
-        sorted_timeline = sorted(timeline)
-        for entry in sorted_timeline:
-            self.timeline_file_csv.write(entry)
-        self.timeline_file_csv.close()
+                                    # Exclude large script block text from timeline
+                                    if artifact_name == 'script_powershell':
+                                        try:
+                                            # Create a copy to modify
+                                            temp_row = list(row)
+                                            script_block_index = header.index('script_block_text')
+                                            temp_row[script_block_index] = "[Script Block Omitted]"
+                                            other_info = self.separator.join(temp_row[2:])
+                                        except (ValueError, IndexError):
+                                            other_info = self.separator.join(row[2:])  # Fallback
+                                    else:
+                                        other_info = self.separator.join(row[2:])
 
-    def merge_new_file_to_timeline(self, current_timeline, new_element, out_path):
-        current_timeline_as_list = []
-        print("reading timeline")
-        with open(current_timeline) as current_timeline_file:
-            current_timeline_as_list = current_timeline_file.readlines()
-        print("timeline ingested")
-        new_elem_formated = self.format_result_file_for_timeline_ingestion(new_element)
-        print("merging files")
-        new_timeline_as_list = [*current_timeline_as_list, *new_elem_formated]
-        print("sorting timeline")
-        sorted_timeline = sorted(new_timeline_as_list)
-        print("writing new timeline")
-        new_timeline = os.path.join(out_path, "new_timeline.csv")
-        with open(new_timeline, "a") as new_timeline_file:
-            for entry in sorted_timeline:
-                new_timeline_file.write(entry)
+                                    timeline_row = [row[0], row[1], artifact_name, other_info]
+                                    timeline_data.append(timeline_row)
+                    except Exception as e:
+                        print(f"Warning: Could not process {file} for timeline. Error: {e}")
 
-    def format_result_file_for_timeline_ingestion(self, result_file):
-        new_element_formated_as_list = []
-        print("ingesting new file, it can take a while")
-        with open(result_file, "r") as new_element_file:
-            try:
-                next(new_element_file)
-                for line in new_element_file:
-                    f_line = self.format_line(line, Path(result_file).stem)
-                    if f_line:
-                        new_element_formated_as_list.append(f_line)
-            except StopIteration:
-                print("stop iteration in file {}, skipping".format(str(file)))
-            except:
-                print(traceback.format_exc())
+        # Sort by Date (column 0) then Time (column 1)
+        timeline_data.sort(key=lambda x: (x[0], x[1]))
 
-        return new_element_formated_as_list
+        print(f"Writing {len(timeline_data)} events to timeline.csv...")
+        writer = self.get_csv_writer('timeline', delimiter=self.separator)
+        if writer:
+            writer.writerows(timeline_data)
 
-    def format_line(self, line, source):
-        try:
-            l_line = line.split("|")
-            l_line.insert(2, source)
-            return "|".join(l_line)
-        except:
-            print(traceback.format_exc())
+    def clean_duplicates(self):
+        """
+        Removes duplicate lines from all generated CSV files, preserving the header.
+        """
+        print("Cleaning duplicate entries from result files...")
+        for root, _, files in os.walk(self.csv_dir):
+            for file in files:
+
+                if file.endswith('.csv') and "script_powershell" not in file:
+                    filepath = os.path.join(root, file)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            lines = f.readlines()
+
+                        if len(lines) > 1:
+                            header = lines[0]
+                            # Use a set for the body to automatically handle duplicates
+                            unique_body_lines = set(lines[1:])
+
+                            # Reconstruct the file with header and sorted unique body
+                            final_lines = [header] + sorted(list(unique_body_lines))
+
+                            if len(final_lines) < len(lines):
+                                print(f"  - Removed {len(lines) - len(final_lines)} duplicates from {file}")
+                                with open(filepath, 'w', encoding='utf-8') as f:
+                                    f.writelines(final_lines)
+
+                    except Exception as e:
+                        print(f"Warning: Could not clean duplicates from {file}. Error: {e}")
+
 
 def parse_args():
     """
-        Function to parse args
+    Parses command line arguments.
     """
-
-    argument_parser = argparse.ArgumentParser(description=(
-        'Solution to parse a json plaso timeline'))
-
-    argument_parser.add_argument('-t', '--timeline', action="store",
-                                 required=False, dest="timeline", default=False,
-                                 help="path to the timeline , must be json timeline")
-
-    argument_parser.add_argument("-o", "--output", action="store",
-                                 required=True, dest="output_dir", default=False,
-                                 help="dest where the result will be written")
-
-    argument_parser.add_argument("-c", "--casename", action="store",
-                                 required=False, dest="case_name", default=None,
-                                 help="name of the case u working on")
-
-    argument_parser.add_argument("-s", "--separator", action="store",
-                                 required=False, dest="separator", default="|",
-                                 help="separator that will be used on csv files")
-
-    argument_parser.add_argument("--type", action="store",
-                                 required=False, dest="type_output", default="csv",
-                                 choices=["csv", "json", "all"], metavar="csv or json or all for both",
-                                 help="type of the output file format : csv or json or both. Default is csv")
-
-    argument_parser.add_argument("-m", "--machine_name", action="store",
-                                 required=False, dest="machine_name",
-                                 metavar="name of the machine",
-                                 help="name of the machine")
-
-    argument_parser.add_argument("--config", action="store",
-                                 required=False, dest="config_file", default=None,
-                                 help="path to the json config file to be used")
-
-    argument_parser.add_argument("-a", "--append", action="store_true",
-                                 required=False, dest="append",
-                                 help="set to true to append a formated file to the timeline")
-
-    argument_parser.add_argument("--file_to_append", action="store",
-                                 required=False, dest="file_to_append",
-                                 help="path to the file to be merge with timeline")
-
-    argument_parser.add_argument("--current_timeline", action="store",
-                                 required=False, dest="current_timeline_to_merge",
-                                 help="path to the timeline to be merge with new file")
-    return argument_parser
+    parser = argparse.ArgumentParser(description='A robust parser for Plaso JSON timelines.')
+    parser.add_argument('-t', '--timeline', required=True, dest="timeline",
+                        help="Path to the JSON plaso timeline file.")
+    parser.add_argument("-o", "--output", required=True, dest="output_dir",
+                        help="Destination directory for CSV results.")
+    parser.add_argument("-s", "--separator", default="|", dest="separator",
+                        help="Separator for CSV files (default: '|').")
+    parser.add_argument("-m", "--machine_name", default="", dest="machine_name", help="Name of the analyzed machine.")
+    return parser.parse_args()
 
 
-def validate_json(timeline):
-    with open(timeline, 'r') as tl:
-        first_line = tl.readline()
-        try:
-            json.loads(first_line)
-            return True
-        except ValueError as err:
-            return False
-
-
-# File appears not to be in CSV format; move along
-def check_input(timeline):
-    if validate_json(timeline):
-        return "json"
-    else:
-        print("Cannot read timeline correctly, are you sure that it is a valid json line format?")
-        exit(1)
+def is_valid_json_line(filepath):
+    """
+    Checks if the first line of the file is valid JSON.
+    """
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            json.loads(f.readline())
+        return True
+    except (IOError, json.JSONDecodeError, UnicodeDecodeError):
+        return False
 
 
 if __name__ == '__main__':
+    args = parse_args()
 
-    parser = parse_args()
-    args = parser.parse_args()
+    if not is_valid_json_line(args.timeline):
+        print("ERROR: Timeline file is not a valid JSON-L file or is unreadable.", file=sys.stderr)
+        sys.exit(1)
 
     start_time = time.time()
-    now = datetime.now()  # current date and time
-    date_time = now.strftime("%m/%d/%Y, %H:%M:%S")
+    print(f"Parser started at: {datetime.now().strftime('%Y-%m-%d, %H:%M:%S')}")
 
-    print("Started at {}:".format(date_time))
-
-    if args.append:
-        if args.current_timeline_to_merge and args.file_to_append:
-            mp = MaximumPlasoParserJson(args.timeline, args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
-                                        args.machine_name, False)
-            mp.merge_new_file_to_timeline(args.current_timeline_to_merge, args.file_to_append, args.output_dir)
-
-            exit(1)
-        else:
-            print(parser.print_help())
-            exit(1)
-    type_input = check_input(args.timeline)
-    if type_input == "json":
-        mp = MaximumPlasoParserJson(args.timeline, args.output_dir, args.type_output, args.separator, args.case_name, args.config_file,
-                                    args.machine_name, True)
-        mp.parse_timeline()
-    else:
-        print("Timeline is not a valid Json, aboarding")
-        exit(1)
-
+    mpp = MaximumPlasoParser(
+        path_to_timeline=args.timeline,
+        output_directory=args.output_dir,
+        separator=args.separator,
+        machine_name=args.machine_name
+    )
+    mpp.parse_timeline()
+    mpp.clean_duplicates()  # Clean duplicates before creating timeline
+    mpp.create_timeline()  # Create the final merged timeline
 
     time_in_sec = time.time() - start_time
-    print("Finished in {} ".format(timedelta(seconds=time_in_sec)))
+    print(f"Finished in {timedelta(seconds=time_in_sec)}")
 
-
-
-
-"""
-Info for further parsing
-location": "Microsoft-Windows-Windows Defender%4Operational.evtx
-location": "Microsoft-Windows-Windows Defender%4WHC.evtx
-event id 1116 1117 1015 1013 1014 1012 1011 1010 1009 1008 1007 1006 1005 1004 1003 1002 
-
-location": "Microsoft-Windows-Windows Firewall With Advanced Security%4ConnectionSecurity.evtx
-location": "Microsoft-Windows-Windows Firewall With Advanced Security%4FirewallDiagnostics.evtx
-location": "Microsoft-Windows-Windows Firewall With Advanced Security%4Firewall.evtx
-location": "Microsoft-Windows-WindowsUpdateClient%4Operational.evtx
-location": "Microsoft-Windows-WinINet-Config%4ProxyConfigChanged.evtx
-location": "Microsoft-Windows-Winlogon%4Operational.evtx
-location": "Microsoft-Windows-WinRM%4Operational.evtx
-location": "Microsoft-Windows-WMI-Activity%4Operational.evtx
-  
-4614 This event is generated when a user attempts to change their password. It is logged on domain controllers 
-and member computers. 
-
-Send json to ELK with index through curl, doesnt work with big files
-jq -c -r '. | {"index": {"_index": "geelong"}}, .' amcache.json | curl -XPOST "http://localhost:9200/_bulk?pretty" -H "Content-Type: application/json" --data-binary @-
-
-
-Multiple plaso parser name
-"parser": "pe",
-"parser": "winreg/msie_zone",
-"""
