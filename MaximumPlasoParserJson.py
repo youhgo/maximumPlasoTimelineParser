@@ -96,6 +96,8 @@ class MaximumPlasoParser:
                      "ip_port"],
             "4688": ["Date", "Time", "event_code", "subject_user_name", "target_user_name", "parent_process_name",
                      "new_process_name", "command_line"],
+            "user_modification": ["Date", "Time", "event_code", "info", "TargetUserName", "SubjectUserName",
+                                  "TargetDomainName", "TargetSid", "SamAccountName", "PasswordLastSet"],
             "tscheduler": ["Date", "Time", "event_code", "name", "task_name", "instance_id", "action_name",
                            "result_code", "user_name", "user_context"],
             "remote_rdp": ["Date", "Time", "event_code", "user_name", "ip_addr"],
@@ -262,6 +264,8 @@ class MaximumPlasoParser:
             self.parse_new_proc_from_xml(event)
         elif event_code in (4608, 4609):
             self.parse_windows_startup_shutdown(event)
+        elif event_code in (4720, 4723, 4724, 4726):
+            self.parse_user_modification(event, event_code)
 
     def parse_logon_from_xml(self, event, artifact_key):
         ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
@@ -319,6 +323,39 @@ class MaximumPlasoParser:
             "command_line": data.get("CommandLine", "-")
         }
         self._write_csv_row("4688", data_dict)
+
+    def parse_user_modification(self, event, event_code):
+        ts_date, ts_time = self.convert_epoch_to_date(event.get("timestamp"))
+        if event_code == 4720:
+            info = "UserCreation"
+        elif event_code == 4726:
+            info = "userDeletion"
+        elif event_code == 4723:
+            info = "PswdChangedByUser"
+        elif event_code == 4724:
+            info = "PswdResetedByTiers"
+        else:
+            info = "UnknownUserModification"
+
+        try:
+            evt_as_json = xmltodict.parse(event.get("xml_string", "<_/>"))
+            data = self._xml_data_to_dict(evt_as_json.get("Event", {}).get("EventData", {}).get("Data"))
+        except (xmltodict.expat.ExpatError, IndexError):
+            return
+
+        data_dict = {
+            "Date": ts_date,
+            "Time": ts_time,
+            "event_code": event_code,
+            "info": info,
+            "TargetUserName": data.get("TargetUserName", "-"),
+            "SubjectUserName": data.get("SubjectUserName", "-"),
+            "TargetDomainName": data.get("TargetDomainName", "-"),
+            "TargetSid": data.get("TargetSid", "-"),
+            "SamAccountName": data.get("SamAccountName", "-"),
+            "PasswordLastSet": data.get("PasswordLastSet", "-"),
+        }
+        self._write_csv_row("user_modification", data_dict)
 
     def parse_system_evtx(self, event):
         if event.get("event_identifier") == 7045: self.parse_service_from_xml(event)
@@ -857,8 +894,7 @@ class MaximumPlasoParser:
         print("Cleaning duplicate entries from result files...")
         for root, _, files in os.walk(self.csv_dir):
             for file in files:
-
-                if file.endswith('.csv') and "script_powershell" not in file:
+                if file.endswith('.csv'):
                     filepath = os.path.join(root, file)
                     try:
                         with open(filepath, 'r', encoding='utf-8') as f:
