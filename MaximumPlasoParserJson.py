@@ -673,6 +673,7 @@ class MaximumPlasoParser:
         data_dict = {
             "Date": ts_date, "Time": ts_time, "Name": os.path.basename(full_path),
             "FullPath": full_path, "id": event.get("program_identifier", "-"),
+            "keyPath": event.get("key_path", "-"),
             "Hash": event.get("sha256_hash", "-")
         }
         self._write_csv_row("amcache", data_dict)
